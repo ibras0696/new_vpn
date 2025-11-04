@@ -43,6 +43,7 @@ class Settings(BaseSettings):
     XRAY_NETWORK: str = Field("tcp", description="tcp / ws / grpc")
     XRAY_API_ENABLED: bool = Field(True, description="Включить API XRay")
     XRAY_API_PORT: int = Field(10085, description="Порт API")
+    XRAY_INBOUND_TAG: str = Field("vless-inbound", description="Тег inbound-а VLESS для API операций")
 
     @property
     def async_db_url(self) -> str:

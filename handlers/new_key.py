@@ -1,4 +1,7 @@
+import asyncio
 import io
+import logging
+
 import qrcode
 from aiogram import Router, types
 from aiogram.filters import Command
@@ -6,8 +9,10 @@ from aiogram.types import BufferedInputFile  # ✅ Добавляем импор
 from config import settings
 from data.db import AsyncSessionLocal
 from data.repo import VlessKeyRepo
+from services.xray_client import add_vless_user
 
 router = Router()
+logger = logging.getLogger(__name__)
 
 
 @router.message(Command("new_key"))
@@ -36,6 +41,14 @@ async def cmd_new_key(message: types.Message):
     async with AsyncSessionLocal() as session:
         repo = VlessKeyRepo(session)
         key = await repo.create(user_id=1, days=days)
+
+    try:
+        added = await asyncio.to_thread(add_vless_user, key)
+        if not added:
+            logger.warning("Ключ %s уже присутствует в XRay.", key.id)
+    except Exception:  # noqa: BLE001
+        logger.exception("Не удалось зарегистрировать ключ %s в XRay", key.id)
+        await message.answer("⚠️ Ключ создан, но XRay API вернул ошибку. Проверь логи.")
 
     # === Формируем VLESS-ссылку ===
     domain = settings.XRAY_DOMAIN

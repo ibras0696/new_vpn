@@ -4,12 +4,22 @@ from datetime import datetime, UTC
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from data.db import AsyncSessionLocal
 from data.repo import VlessKeyRepo
-from services.xray_client import remove_vless_user
+from config import settings
+from services.xray_client import check_xray_api, remove_vless_user
 
 logger = logging.getLogger(__name__)
 
 async def cleanup_expired():
     """Отключает все истёкшие ключи."""
+    if not settings.XRAY_API_ENABLED:
+        logger.debug("XRAY API отключён — задача очистки пропускается.")
+        return
+
+    available = await asyncio.to_thread(check_xray_api)
+    if not available:
+        logger.warning("XRAY API недоступен — очистка истёкших ключей пропущена.")
+        return
+
     async with AsyncSessionLocal() as session:
         repo = VlessKeyRepo(session)
         keys = await repo.list_all(only_active=True)
@@ -17,8 +27,14 @@ async def cleanup_expired():
             if key.expires_at and datetime.now(UTC) > key.expires_at:
                 key.active = False
                 await session.commit()
-                remove_vless_user(str(key.id))
-                logger.info(f"❌ Ключ {key.id} истёк и отключён")
+                try:
+                    removed = await asyncio.to_thread(remove_vless_user, str(key.id))
+                    if removed:
+                        logger.info(f"❌ Ключ {key.id} истёк и отключён")
+                    else:
+                        logger.debug("Ключ %s отсутствовал в XRay во время очищения.", key.id)
+                except Exception:  # noqa: BLE001
+                    logger.exception("Ошибка при удалении ключа %s из XRay.", key.id)
 
 def start_scheduler():
     """Запускает планировщик в event-loop’е."""

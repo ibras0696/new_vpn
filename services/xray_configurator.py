@@ -30,6 +30,7 @@ def _build_config() -> dict:
             {
                 "port": settings.XRAY_PORT,
                 "protocol": "vless",
+                "tag": settings.XRAY_INBOUND_TAG,
                 "settings": {
                     "clients": [],
                     "decryption": "none"

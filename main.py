@@ -9,6 +9,7 @@ from aiogram.enums import ParseMode
 from config import settings
 from services.xray_configurator import configure_xray
 from services.scheduler import start_scheduler
+from services.xray_client import check_xray_api, reconcile_active_keys
 from data.db import init_db
 from handlers import router
 
@@ -26,6 +27,15 @@ async def main_async() -> None:
     """
     logging.info("🚀 Инициализация базы данных...")
     await init_db()
+
+    if settings.XRAY_API_ENABLED:
+        logging.info("🩺 Проверка XRay API...")
+        xray_available = await asyncio.to_thread(check_xray_api)
+        if xray_available:
+            logging.info("🔄 Синхронизация активных ключей с XRay...")
+            await reconcile_active_keys()
+        else:
+            logging.warning("⚠️ XRay API недоступен. Синхронизация пропущена.")
 
     logging.info('Start Sheduler')
     start_scheduler()
