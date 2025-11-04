@@ -25,5 +25,5 @@ dev = [
 ]
 
 [tool.setuptools]
-packages = ["handlers", "services", "data"]
+packages = ["handlers", "services", "data", "filters"]
 py-modules = ["main", "orm_main", "config"]
