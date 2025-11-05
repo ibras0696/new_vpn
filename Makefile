@@ -30,16 +30,16 @@ test: ## Запустить pytest
 	@command -v pytest >/dev/null || { echo "❌ pytest не установлен. Запусти 'make dev-install'."; exit 1; }
 	pytest
 
-docker-build: ## Собрать Docker-образ бота
+build: ## Собрать Docker-образ бота
 	docker compose build
 
-compose-up: ## Запустить сервисы через docker-compose в фоне
-	docker compose up -d
+up: ## Запустить сервисы через docker-compose в фоне
+	docker compose up -d --build
 
-compose-down: ## Остановить и удалить сервисы docker-compose
+down: ## Остановить и удалить сервисы docker-compose
 	docker compose down
 
-docker-logs: ## Посмотреть логи docker-compose
+logs: ## Посмотреть логи docker-compose
 	docker compose logs -f
 
 clean: ## Очистить кэши, coverage и сборочные артефакты
