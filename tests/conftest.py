@@ -4,3 +4,4 @@ import os
 os.environ.setdefault("BOT_TOKEN", "test-token")
 os.environ.setdefault("ADMIN_ID", "1")
 os.environ.setdefault("XRAY_DOMAIN", "example.com")
+os.environ.setdefault("XRAY_API_HOST", "127.0.0.1")

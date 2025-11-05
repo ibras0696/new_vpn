@@ -69,6 +69,7 @@ make run                       # запуск бота
 | `XRAY_SECURITY` | `tls` или `none` |
 | `XRAY_NETWORK` | `tcp`, `ws`, `grpc` |
 | `XRAY_API_ENABLED` | `true` / `false` |
+| `XRAY_API_HOST` | Хост API (для Docker укажи `host.docker.internal` или IP хоста) |
 | `XRAY_API_PORT` | Порт API (по умолчанию `10085`) |
 | `XRAY_INBOUND_TAG` | Тег inbound-а в XRay |
 

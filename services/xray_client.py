@@ -25,7 +25,7 @@ class XRayAPIError(RuntimeError):
 
 
 def _api_server() -> str:
-    return f"127.0.0.1:{settings.XRAY_API_PORT}"
+    return f"{settings.XRAY_API_HOST}:{settings.XRAY_API_PORT}"
 
 
 def _run_xray_api(command: str, *params: str, check: bool = True) -> subprocess.CompletedProcess[str]:
