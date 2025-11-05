@@ -50,7 +50,7 @@ def _build_config() -> dict:
             "tag": "api"
         }
         base_config["inbounds"].append({
-            "listen": "127.0.0.1",
+            "listen": settings.XRAY_API_LISTEN,
             "port": settings.XRAY_API_PORT,
             "protocol": "dokodemo-door",
             "settings": {"address": "127.0.0.1"},

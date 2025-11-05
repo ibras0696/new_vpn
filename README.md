@@ -69,7 +69,8 @@ make run                       # запуск бота
 | `XRAY_SECURITY` | `tls` или `none` |
 | `XRAY_NETWORK` | `tcp`, `ws`, `grpc` |
 | `XRAY_API_ENABLED` | `true` / `false` |
-| `XRAY_API_HOST` | Хост API (для Docker укажи `host.docker.internal` или IP хоста) |
+| `XRAY_API_LISTEN` | Где слушает XRay API (`127.0.0.1` или `0.0.0.0`, если доступ из контейнера) |
+| `XRAY_API_HOST` | Хост API. Для Docker на Linux добавь `extra_hosts: host.docker.internal:host-gateway` и ставь `host.docker.internal` |
 | `XRAY_API_PORT` | Порт API (по умолчанию `10085`) |
 | `XRAY_INBOUND_TAG` | Тег inbound-а в XRay |
 
@@ -80,6 +81,8 @@ docker compose up -d
 docker compose logs -f bot
 ```
 В образ включается XRay CLI (`ARG XRAY_VERSION` по умолчанию `25.10.15`). Можно переопределить версию: `docker compose build --build-arg XRAY_VERSION=...`.
+
+> **Примечание (Linux):** docker-compose уже содержит `extra_hosts: host.docker.internal:host-gateway`, поэтому контейнер может обратиться к API XRay на хосте. Укажи `XRAY_API_HOST=host.docker.internal` и, если XRay запущен на этом же сервере, выстави `XRAY_API_LISTEN=0.0.0.0`, чтобы API принимал соединения извне.
 
 ## Автоконфигурация сервера (Ubuntu 22.04/24.04)
 ### scripts/setup_ubuntu.py

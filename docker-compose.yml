@@ -12,3 +12,5 @@ services:
     volumes:
       - ./data:/app/data
       - ./etc/xray:/etc/xray
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

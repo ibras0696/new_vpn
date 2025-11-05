@@ -42,6 +42,7 @@ class Settings(BaseSettings):
     XRAY_SECURITY: str = Field("tls", description="tls / none")
     XRAY_NETWORK: str = Field("tcp", description="tcp / ws / grpc")
     XRAY_API_ENABLED: bool = Field(True, description="Включить API XRay")
+    XRAY_API_LISTEN: str = Field("127.0.0.1", description="Адрес, на котором слушает XRay API")
     XRAY_API_HOST: str = Field("127.0.0.1", description="Хост API XRay (используй host.docker.internal внутри Docker)")
     XRAY_API_PORT: int = Field(10085, description="Порт API")
     XRAY_INBOUND_TAG: str = Field("vless-inbound", description="Тег inbound-а VLESS для API операций")
