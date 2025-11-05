@@ -25,18 +25,23 @@ pyproject.toml     # PEP 621 + Setuptools
 ```
 
 ## Требования
-- Рабочий выход в интернет (проверь перед стартом: `ping 8.8.8.8`, `nslookup registry-1.docker.io`, `curl https://api.telegram.org`). Если команды падают — сначала исправь сеть/ DNS.
-- Python 3.11+
-- Git, Make (`sudo apt-get install -y git make` на Ubuntu, если скрипт ещё не ставил)
-- Telegram Bot API токен
-- XRay Core (CLI `xray`, API включённый inbound)
-- SQLite (по умолчанию) или PostgreSQL
+- **Рабочая сеть.** Перед любыми шагами на сервере убедись, что есть интернет:
+  ```bash
+  ping -c 3 8.8.8.8
+  nslookup registry-1.docker.io
+  curl https://api.telegram.org
+  ```
+  Если что-то падает — сначала почини DNS/маршруты (например, пропиши `DNS=1.1.1.1 8.8.8.8` в `/etc/systemd/resolved.conf` и перезапусти `systemd-resolved`).
+- **Инструменты:** Python 3.11+, Git, Make, Docker Compose, токен Telegram-бота.
+- **XRay Core:** установленный бинарь `xray`, который сможет читать конфиг `/etc/xray/config.json` и принимать API-запросы.
+- **База данных:** SQLite (по умолчанию) или PostgreSQL.
 
-## Установка и запуск (локально)
-1. Клонируй репозиторий `git clone https://github.com/ibras0696/new_vpn.git` и перейди в его каталог.
-2. Создай виртуальное окружение (`python3 -m venv .venv`), активируй его и выполни `make dev-install`.
-3. Скопируй `.env.example` в `.env`, заполни обязательные переменные.
-4. Запусти бота командой `make run`.
+## Локальный запуск (без Docker)
+1. `git clone https://github.com/ibras0696/new_vpn.git` и переход в каталог проекта.
+2. `python3 -m venv .venv && source .venv/bin/activate`.
+3. `make dev-install` — установит зависимости.
+4. `cp .env.example .env` и укажи минимум `BOT_TOKEN`, `ADMIN_ID`. Для локального режима можно поставить `XRAY_API_ENABLED=false`.
+5. `make run` — бот стартует и будет ждать команды.
 
 > Для запуска без XRay API выставь `XRAY_API_ENABLED=false` — бот пропустит интеграционные вызовы.
 
@@ -105,31 +110,54 @@ sudo systemctl status xray
 ```
 
 ## Деплой на сервере (подробно)
-1. **Проверка сети.** Убедись, что сервер выходит в интернет: `ping 8.8.8.8`, `nslookup registry-1.docker.io`, `curl https://api.telegram.org`. Если DNS не работает — пропиши публичные DNS (например, в `/etc/systemd/resolved.conf` выставь `DNS=1.1.1.1 8.8.8.8`, `FallbackDNS=1.0.0.1 8.8.4.4`, затем `sudo systemctl restart systemd-resolved`). Проверь, что firewall не блокирует исходящий трафик (`sudo ufw status verbose` → *Default: allow outgoing*).
-2. **Базовая настройка.** Выполни `sudo python3 scripts/setup_ubuntu.py --admin <user> --ports 443 10085` (или поставь пакеты вручную: git, make, docker, ufw). После скрипта перезайди в сессию, чтобы применились группы docker/sudo.
-3. **Клонирование и `.env`.** Клонируй репозиторий, зайди в каталог и создай `.env` на основе `.env.example`. Обязательно поставь:
-   - `XRAY_DOMAIN` = внешний IP или домен сервера;
-   - `XRAY_API_HOST` = тот же IP/домен (Docker будет ходить на него);  
-   - `XRAY_API_LISTEN=0.0.0.0`, чтобы XRay слушал API на всех интерфейсах;  
-   - остальные значения по ситуации (порт, TLS, БД).
-4. **Запуск контейнера.** Выполни `docker compose up -d --build` (или `make compose-up`). После старта в каталоге появится `./etc/xray/config.json`.
-5. **Применение конфига XRay.** Скопируй файл в системный путь и перезапусти службу:
-   ```bash
-   sudo cp ./etc/xray/config.json /etc/xray/config.json
-   sudo systemctl restart xray
-   sudo ss -ltnp | grep 10085  # должен показать 0.0.0.0:10085
-   ```
-6. **Проверка API из контейнера.**
-   ```bash
-   docker compose exec bot python - <<'PY'
+
+### 1. Подготовь окружение
+- Убедись, что есть интернет (см. раздел «Требования»). Любые ошибки DNS/маршрута исправь до следующих шагов.
+- Запусти скрипт настройки или поставь пакеты вручную:
+  ```bash
+  sudo python3 scripts/setup_ubuntu.py --admin <user> --ports 443 10085
+  ```
+  Скрипт создаст пользователя, установит git/make/docker/ufw. Перелогинься, чтобы применились группы.
+
+### 2. Клонируй проект и подготовь `.env`
+- Склонируй репозиторий в любую удобную папку.
+- `cp .env.example .env` и заполни переменные. Для продакшена обязательно:
+  - `XRAY_DOMAIN` — внешний IP или домен.
+  - `XRAY_API_HOST` — тот же IP/домен (адрес, куда будет подключаться бот).
+  - `XRAY_API_LISTEN=0.0.0.0` — XRay будет слушать API на всех интерфейсах.
+  - Остальное под свою инфраструктуру (порт, TLS, БД).
+
+### 3. Собери и запусти контейнер
+```bash
+docker compose up -d --build
+```
+В каталоге появится `./etc/xray/config.json` — это свежий конфиг XRay.
+
+### 4. Применяй конфиг XRay
+```bash
+sudo cp ./etc/xray/config.json /etc/xray/config.json
+sudo systemctl restart xray
+sudo ss -ltnp | grep 10085    # ожидание: 0.0.0.0:10085 (или *:10085)
+```
+Если видишь `127.0.0.1:10085`, значит `XRAY_API_LISTEN` не поменяли — вернись к шагу 2.
+
+### 5. Проверь доступ к API из контейнера
+```bash
+docker compose exec bot python - <<'PY'
 import socket
 socket.create_connection(('YOUR_SERVER_IP', 10085), timeout=3)
 print('OK: API доступен')
 PY
-   ```
-   Если соединение открывается — XRay готов к управлению. Если нет, вернись к шагу 5.
-7. **Убедись, что бот запущен в единственном экземпляре.** `docker compose ps` должен показывать один контейнер `bot`. Если ранее запускал вручную (`python -m main`), останови процесс.
-8. **Проверка Telegram.** В логах `docker compose logs -f bot` не должно быть `TelegramNetworkError` или `Conflict`. Если появляются — проверь интернет и наличие параллельных запусков.
+```
+Если получаешь `OK`, можно работать. При `Connection refused` убедись, что XRay слушает на 0.0.0.0 и firewall открыт.
+
+### 6. Проследи, чтобы бот был один
+- `docker compose ps` — должен быть один контейнер `bot`.
+- Если есть локальные запуски (`python -m main`), заверши их (`pkill -f "python -m main"`). Иначе Telegram вернёт `Conflict: terminated by other getUpdates request`.
+
+### 7. Контрольные проверки
+- `docker compose logs -f bot` — убедись, что нет `TelegramNetworkError`.
+- Попробуй создать ключ через меню бота: в логах будет `Команда … завершилась ошибкой` только если API снова недоступен.
 
 ## Тестирование
 ```bash
