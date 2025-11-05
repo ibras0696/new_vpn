@@ -116,8 +116,8 @@ sudo usermod -aG docker $USER
 ### 5. Развёртывание бота
 ```bash
 cd /opt
-sudo git clone https://github.com/<your-account>/vpppn.git
-sudo chown -R vpppn:vpppn vpppn
+sudo git clone https://github.com/<your-account>/new_vpn.git
+sudo chown -R vpppn:vpppn new_vpn
 ```
 
 Создай `.env` на основе шаблона:
