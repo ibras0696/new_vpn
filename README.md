@@ -103,56 +103,65 @@ docker compose logs -f bot
 sudo systemctl status xray
 ```
 
-## Развёртывание на сервере: шаг за шагом
+## Развёртывание на сервере: полный сценарий
 
-### Шаг 0. Проверка сети
-На сервере должны работать все три команды:
+### Этап 0. Проверка связи
 ```bash
 ping -c 3 8.8.8.8
 nslookup registry-1.docker.io
 curl https://api.telegram.org
 ```
-Если что-то падает — сначала настрой DNS и маршруты (например, пропиши `DNS=1.1.1.1 8.8.8.8` в `/etc/systemd/resolved.conf`, перезапусти `systemd-resolved`, убедись, что UFW разрешает исходящий трафик).
+Все команды должны выполняться без ошибок. Если нет — настрой DNS/маршруты (например, пропиши `DNS=1.1.1.1 8.8.8.8` в `/etc/systemd/resolved.conf`, перезапусти `systemd-resolved`, проверь `sudo ufw status verbose`).
 
-### Шаг 1. Установка базовых пакетов
-Проще всего использовать скрипт:
-```bash
-sudo python3 scripts/setup_ubuntu.py --admin <user> --ports 443 10085
-```
-Он установит Git/Make/Docker/UFW и создаст пользователя. После выполнения разлогинься и войди снова, чтобы применились группы docker/sudo.
+### Этап 1. Подготовка сервера
+1. **Системные пакеты.** Выполни
+   ```bash
+   sudo python3 scripts/setup_ubuntu.py --admin <user> --ports 443 10085
+   ```
+   Скрипт поставит Git/Make/Docker/UFW и создаст пользователя. Перелогинься, чтобы применились группы docker/sudo.
+2. **Установка XRay.** Если XRay ещё не стоит, установи бинарь и подготовь systemd‑юнит один из способов:
+   ```bash
+   sudo bash -c 'mkdir -p /etc/xray /var/log/xray'
+   sudo bash -c 'curl -L https://github.com/XTLS/Xray-core/releases/download/v25.10.15/Xray-linux-64.zip -o /tmp/xray.zip'
+   sudo bash -c 'apt install -y unzip && unzip /tmp/xray.zip -d /usr/local/share/xray'
+   sudo bash -c 'install -m 755 /usr/local/share/xray/xray /usr/local/bin/xray'
+   sudo python3 scripts/install_xray_service.py --exec /usr/local/bin/xray --config /etc/xray/config.json
+   ```
+   После этого `sudo systemctl status xray` должен показывать активный (пусть пока конфиг пустой).
 
-### Шаг 2. Клонирование и подготовка `.env`
+### Этап 2. Подготовка проекта и `.env`
 ```bash
 git clone https://github.com/ibras0696/new_vpn.git
 cd new_vpn
 cp .env.example .env
+mkdir -p etc/xray   # каталог для конфигов внутри репозитория
 ```
-В файле `.env` укажи минимум:
+В `.env` обязательно укажи:
 - `BOT_TOKEN`, `ADMIN_ID`
-- `XRAY_DOMAIN` и `XRAY_API_HOST` = внешний IP или домен сервера
+- `XRAY_DOMAIN` и `XRAY_API_HOST` = внешний IP или домен
 - `XRAY_API_LISTEN=0.0.0.0`
-Остальные параметры под инфру (порт VLESS, TLS, БД).
+- при необходимости скорректируй путь `XRAY_CONFIG_PATH` (по умолчанию `./etc/xray/config.json`).
 
-### Шаг 3. Сборка и запуск контейнера
+### Этап 3. Запуск контейнера и генерация конфига
 ```bash
 docker compose up -d --build
 ```
-В каталоге появится файл с конфигом XRay (путь берётся из `XRAY_CONFIG_PATH`, по умолчанию `./etc/xray/config.json`).
+После старта в каталоге появится файл, на который указывает `XRAY_CONFIG_PATH` (стандартно `./etc/xray/config.json`).
 
-### Шаг 4. Применение конфига XRay
+### Этап 4. Применение конфига XRay
 ```bash
-# если оставил значение по умолчанию
+# если используешь путь по умолчанию
 sudo cp ./etc/xray/config.json /etc/xray/config.json
 
-# если менял переменную XRAY_CONFIG_PATH, используй её значение
+# если менял XRAY_CONFIG_PATH, скопируй файл из указанного пути
 # sudo cp <путь из XRAY_CONFIG_PATH> /etc/xray/config.json
 
 sudo systemctl restart xray
-sudo ss -ltnp | grep 10085  # ожидаем 0.0.0.0:10085
+sudo ss -ltnp | grep 10085   # ожидаем 0.0.0.0:10085 или *:10085
 ```
-Если видишь `127.0.0.1:10085`, значит в `.env` остался старый `XRAY_API_LISTEN` — вернись к шагу 2 и повтори.
+Если порт слушается только на `127.0.0.1`, вернись к Этапу 2 и убедись, что `XRAY_API_LISTEN=0.0.0.0`.
 
-### Шаг 5. Проверка доступа к API из контейнера
+### Этап 5. Проверка API из контейнера
 ```bash
 docker compose exec bot python - <<'PY'
 import socket
@@ -160,17 +169,15 @@ socket.create_connection(('YOUR_SERVER_IP', 10085), timeout=3)
 print('OK: API доступен')
 PY
 ```
-Подставь вместо `YOUR_SERVER_IP` реальный IP/домен сервера.
-`OK: API доступен` — всё настроено. Ошибка `Connection refused` говорит, что XRay ещё не слушает внешний интерфейс или порт закрыт.
+Замените `YOUR_SERVER_IP` на IP/домен сервера. Сообщение `OK` означает, что бот сможет управлять XRay. При `Connection refused` проверь firewall и настройки XRay.
 
-### Шаг 6. Единственный экземпляр бота
-Убедись, что работает только один процесс:
+### Этап 6. Убедись, что запущен один бот
 - `docker compose ps` — должен быть один контейнер `bot`.
-- Если запускал вручную, останови (`pkill -f "python -m main"`). Иначе Telegram вернёт `Conflict: terminated by other getUpdates request`.
+- Если ранее запускал бота вручную (`python -m main`), останови процесс (`pkill -f "python -m main"`). Иначе Telegram отдаст `Conflict: terminated by other getUpdates request`.
 
-### Шаг 7. Финальные проверки
-- `docker compose logs -f bot` — проверь, что нет `TelegramNetworkError`.
-- Создай тестовый ключ через меню бота. Если при этом лог пишет `failed to dial ...` — возвращайся к шагу 5.
+### Этап 7. Финальные проверки
+- `docker compose logs -f bot` — нет ли `TelegramNetworkError`.
+- Создай тестовый ключ/удали ключ через меню. Если в логах появится `failed to dial ...`, вернись к Этапу 5.
 
 ## Тестирование
 ```bash
