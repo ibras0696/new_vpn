@@ -137,11 +137,12 @@ cp .env.example .env
 ```bash
 docker compose up -d --build
 ```
-В каталоге появится `./etc/xray/config.json` — конфиг, который нужно применить XRay.
+В каталоге появится файл с конфигом XRay (путь берётся из `XRAY_CONFIG_PATH`, по умолчанию `./etc/xray/config.json`).
 
 ### Шаг 4. Применение конфига XRay
 ```bash
-sudo cp ./etc/xray/config.json /etc/xray/config.json
+CONFIG_PATH="$(grep -E '^XRAY_CONFIG_PATH=' .env | cut -d '=' -f2)"
+sudo cp "${CONFIG_PATH:-./etc/xray/config.json}" /etc/xray/config.json
 sudo systemctl restart xray
 sudo ss -ltnp | grep 10085  # ожидаем 0.0.0.0:10085
 ```
