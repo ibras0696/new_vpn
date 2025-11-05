@@ -141,8 +141,12 @@ docker compose up -d --build
 
 ### Шаг 4. Применение конфига XRay
 ```bash
-CONFIG_PATH="$(grep -E '^XRAY_CONFIG_PATH=' .env | cut -d '=' -f2)"
-sudo cp "${CONFIG_PATH:-./etc/xray/config.json}" /etc/xray/config.json
+# если оставил значение по умолчанию
+sudo cp ./etc/xray/config.json /etc/xray/config.json
+
+# если менял переменную XRAY_CONFIG_PATH, используй её значение
+# sudo cp <путь из XRAY_CONFIG_PATH> /etc/xray/config.json
+
 sudo systemctl restart xray
 sudo ss -ltnp | grep 10085  # ожидаем 0.0.0.0:10085
 ```
@@ -156,6 +160,7 @@ socket.create_connection(('YOUR_SERVER_IP', 10085), timeout=3)
 print('OK: API доступен')
 PY
 ```
+Подставь вместо `YOUR_SERVER_IP` реальный IP/домен сервера.
 `OK: API доступен` — всё настроено. Ошибка `Connection refused` говорит, что XRay ещё не слушает внешний интерфейс или порт закрыт.
 
 ### Шаг 6. Единственный экземпляр бота
