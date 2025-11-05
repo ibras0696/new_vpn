@@ -56,68 +56,53 @@ Dockerfile подтягивает XRay CLI (v1.8.14) внутрь контейн
 ## Гайд по установке на Ubuntu 24.04 LTS
 
 ### 1. Подготовка сервера
+Запусти автоматический скрипт (потребуются root-права):
 ```bash
-sudo apt update && sudo apt upgrade -y
-sudo apt install -y curl git ufw
+sudo python3 scripts/setup_ubuntu.py --admin vpppn --ports 443 10085
 ```
 
-Создай отдельного пользователя без прав root (по желанию):
-```bash
-sudo adduser --disabled-password --gecos "" vpppn
-sudo usermod -aG sudo vpppn
-```
+Скрипт:
+- обновит систему и поставит `curl`, `git`, `ufw`, `unzip`;
+- установит Docker Engine и compose plugin;
+- создаст пользователя `vpppn` и добавит его в группы `sudo` и `docker`;
+- откроет указанные порты через UFW (по умолчанию 443 и 10085).
 
 ### 2. Брандмауэр
+Если пропустил скрипт, открой порты вручную:
 ```bash
 sudo ufw allow OpenSSH
-sudo ufw allow 443/tcp          # VLESS TLS
-sudo ufw allow 10085/tcp        # XRay API, если нужен
+sudo ufw allow 443/tcp          # или другой порт VLESS
+sudo ufw allow 10085/tcp        # XRay API для бота
 sudo ufw enable
-sudo ufw status
 ```
 
 ### 3. Установка Docker и Docker Compose
+Скрипт `setup_ubuntu.py` ставит Docker автоматически. Если запускал вручную:
 ```bash
 curl -fsSL https://get.docker.com | sudo sh
-sudo usermod -aG docker $USER   # или vpppn, если используешь отдельного пользователя
-newgrp docker                   # обнови группы в текущей сессии
+sudo usermod -aG docker $USER
 ```
-
-Docker Compose уже входит в пакет (plugin).
 
 ### 4. Установка XRay Core (сервис)
-```bash
-sudo bash -c 'mkdir -p /etc/xray /var/log/xray'
-sudo bash -c 'curl -L https://github.com/XTLS/Xray-core/releases/download/v1.8.14/Xray-linux-64.zip -o /tmp/xray.zip'
-sudo bash -c 'apt install -y unzip && unzip /tmp/xray.zip -d /usr/local/share/xray'
-sudo bash -c 'install -m 755 /usr/local/share/xray/xray /usr/local/bin/xray'
-```
+1. Скачай бинарь:
+    ```bash
+    sudo mkdir -p /etc/xray /var/log/xray
+    sudo curl -L https://github.com/XTLS/Xray-core/releases/download/v1.8.14/Xray-linux-64.zip -o /tmp/xray.zip
+    sudo apt install -y unzip && sudo unzip /tmp/xray.zip -d /usr/local/share/xray
+    sudo install -m 755 /usr/local/share/xray/xray /usr/local/bin/xray
+    ```
 
-Создай systemd‑unit `/etc/systemd/system/xray.service` (минимальный пример):
-```ini
-[Unit]
-Description=XRay Service
-After=network.target
+2. Сгенерируй systemd unit:
+    ```bash
+    sudo python3 scripts/install_xray_service.py \
+        --user root \
+        --exec /usr/local/bin/xray \
+        --config /etc/xray/config.json
+    ```
 
-[Service]
-User=root
-CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
-AmbientCapabilities=CAP_NET_ADMIN CAP_NET_BIND_SERVICE
-NoNewPrivileges=true
-ExecStart=/usr/local/bin/xray run -config /etc/xray/config.json
-Restart=on-failure
+   Скрипт создаст unit-файл, перезагрузит systemd и запустит сервис. Используй `--dry-run`, чтобы просто посмотреть содержимое.
 
-[Install]
-WantedBy=multi-user.target
-```
-
-Запусти сервис:
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable --now xray
-```
-
-> ⚠️ Перед запуском убедись, что бот сгенерирует `/etc/xray/config.json` (см. шаг 6).
+> ⚠️ XRay стартует даже с пустым config.json. После первого запуска бота файл перезапишется.
 
 ### 5. Развёртывание бота
 ```bash
@@ -141,7 +126,7 @@ sudo -u vpppn docker compose -f /opt/vpppn/docker-compose.yml up -d --build
 
 После старта в логах появится сообщение `✅ XRay config.json создан...`; проверь файл:
 ```bash
-sudo cat /etc/xray/config.json
+sudo jq . /etc/xray/config.json
 ```
 
 Перезапусти systemd‑сервис XRay, чтобы применить конфиг:
