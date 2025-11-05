@@ -25,6 +25,7 @@ pyproject.toml     # PEP 621 + Setuptools
 ```
 
 ## Требования
+- Рабочий выход в интернет (проверь перед стартом: `ping 8.8.8.8`, `nslookup registry-1.docker.io`, `curl https://api.telegram.org`). Если команды падают — сначала исправь сеть/ DNS.
 - Python 3.11+
 - Git, Make (`sudo apt-get install -y git make` на Ubuntu, если скрипт ещё не ставил)
 - Telegram Bot API токен
@@ -32,15 +33,10 @@ pyproject.toml     # PEP 621 + Setuptools
 - SQLite (по умолчанию) или PostgreSQL
 
 ## Установка и запуск (локально)
-```bash
-git clone https://github.com/<your-account>/new_vpn.git
-cd new_vpn
-python3 -m venv .venv
-source .venv/bin/activate
-make dev-install               # установка зависимостей
-cp .env.example .env           # скопируй и заполни обязательные переменные
-make run                       # запуск бота
-```
+1. Клонируй репозиторий `git clone https://github.com/ibras0696/new_vpn.git` и перейди в его каталог.
+2. Создай виртуальное окружение (`python3 -m venv .venv`), активируй его и выполни `make dev-install`.
+3. Скопируй `.env.example` в `.env`, заполни обязательные переменные.
+4. Запусти бота командой `make run`.
 
 > Для запуска без XRay API выставь `XRAY_API_ENABLED=false` — бот пропустит интеграционные вызовы.
 
@@ -87,9 +83,7 @@ docker compose logs -f bot
 ## Автоконфигурация сервера (Ubuntu 22.04/24.04)
 ### scripts/setup_ubuntu.py
 Готовит «чистый» сервер: ставит базовые пакеты, Docker, включает UFW, создаёт пользователя.
-```bash
-sudo python3 scripts/setup_ubuntu.py --admin vpppn --ports 443 10085
-```
+
 Полезные флаги:
 - `--admin` — имя создаваемого пользователя (если не указать, пользователь не создаётся).
 - `--ports` — список портов для UFW (по умолчанию `443 10085` + `OpenSSH`).
@@ -98,12 +92,7 @@ sudo python3 scripts/setup_ubuntu.py --admin vpppn --ports 443 10085
 
 ### scripts/install_xray_service.py
 Создаёт systemd unit для XRay и запускает сервис.
-```bash
-sudo python3 scripts/install_xray_service.py \
-  --user root \
-  --exec /usr/local/bin/xray \
-  --config /etc/xray/config.json
-```
+
 Параметры:
 - `--user` — пользователь systemd (по умолчанию `root`).
 - `--unit-path` — путь к unit (по умолчанию `/etc/systemd/system/xray.service`).
@@ -115,12 +104,32 @@ sudo python3 scripts/install_xray_service.py \
 sudo systemctl status xray
 ```
 
-## Деплой на сервере (коротко)
-1. Подготовь сервер: используй `scripts/setup_ubuntu.py` или установи вручную `git`, `make`, Docker, UFW.
-2. Клонируй репозиторий в удобный каталог и назначь владельца (если работаешь не от root).
-3. Создай и заполни `.env`.
-4. Собери и запусти контейнер `docker compose up -d --build` (или `make compose-up`).
-5. После генерации `/etc/xray/config.json` перезапусти XRay: `sudo systemctl restart xray`.
+## Деплой на сервере (подробно)
+1. **Проверка сети.** Убедись, что сервер выходит в интернет: `ping 8.8.8.8`, `nslookup registry-1.docker.io`, `curl https://api.telegram.org`. Если DNS не работает — пропиши публичные DNS (например, в `/etc/systemd/resolved.conf` выставь `DNS=1.1.1.1 8.8.8.8`, `FallbackDNS=1.0.0.1 8.8.4.4`, затем `sudo systemctl restart systemd-resolved`). Проверь, что firewall не блокирует исходящий трафик (`sudo ufw status verbose` → *Default: allow outgoing*).
+2. **Базовая настройка.** Выполни `sudo python3 scripts/setup_ubuntu.py --admin <user> --ports 443 10085` (или поставь пакеты вручную: git, make, docker, ufw). После скрипта перезайди в сессию, чтобы применились группы docker/sudo.
+3. **Клонирование и `.env`.** Клонируй репозиторий, зайди в каталог и создай `.env` на основе `.env.example`. Обязательно поставь:
+   - `XRAY_DOMAIN` = внешний IP или домен сервера;
+   - `XRAY_API_HOST` = тот же IP/домен (Docker будет ходить на него);  
+   - `XRAY_API_LISTEN=0.0.0.0`, чтобы XRay слушал API на всех интерфейсах;  
+   - остальные значения по ситуации (порт, TLS, БД).
+4. **Запуск контейнера.** Выполни `docker compose up -d --build` (или `make compose-up`). После старта в каталоге появится `./etc/xray/config.json`.
+5. **Применение конфига XRay.** Скопируй файл в системный путь и перезапусти службу:
+   ```bash
+   sudo cp ./etc/xray/config.json /etc/xray/config.json
+   sudo systemctl restart xray
+   sudo ss -ltnp | grep 10085  # должен показать 0.0.0.0:10085
+   ```
+6. **Проверка API из контейнера.**
+   ```bash
+   docker compose exec bot python - <<'PY'
+import socket
+socket.create_connection(('YOUR_SERVER_IP', 10085), timeout=3)
+print('OK: API доступен')
+PY
+   ```
+   Если соединение открывается — XRay готов к управлению. Если нет, вернись к шагу 5.
+7. **Убедись, что бот запущен в единственном экземпляре.** `docker compose ps` должен показывать один контейнер `bot`. Если ранее запускал вручную (`python -m main`), останови процесс.
+8. **Проверка Telegram.** В логах `docker compose logs -f bot` не должно быть `TelegramNetworkError` или `Conflict`. Если появляются — проверь интернет и наличие параллельных запусков.
 
 ## Тестирование
 ```bash

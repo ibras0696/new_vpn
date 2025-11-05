@@ -23,6 +23,7 @@ from typing import Iterable
 APT_PACKAGES = [
     "curl",
     "git",
+    "make",
     "unzip",
     "ufw",
     "ca-certificates",
