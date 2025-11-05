@@ -3,7 +3,8 @@ FROM python:3.11-slim
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-ARG XRAY_VERSION=1.8.14
+# Актуальный релиз XRay (см. https://api.github.com/repos/XTLS/Xray-core/releases/latest)
+ARG XRAY_VERSION=25.10.15
 
 WORKDIR /app
 
@@ -17,13 +18,14 @@ RUN curl -fsSL -o /tmp/xray.zip https://github.com/XTLS/Xray-core/releases/downl
     unzip /tmp/xray.zip -d /tmp/xray && \
     install -m 755 /tmp/xray/xray /usr/local/bin/xray && \
     mkdir -p /usr/local/share/xray && \
-    install -m 644 /tmp/xray/*.dat /usr/local/share/xray/ && \
+    if ls /tmp/xray/*.dat >/dev/null 2>&1; then install -m 644 /tmp/xray/*.dat /usr/local/share/xray/; fi && \
     rm -rf /tmp/xray /tmp/xray.zip
 
 # Копируем минимальный набор файлов для установки зависимостей
 COPY pyproject.toml ./
 COPY config.py main.py orm_main.py ./
 COPY data ./data
+COPY filters ./filters
 COPY handlers ./handlers
 COPY services ./services
 

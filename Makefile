@@ -39,6 +39,8 @@ up: ## Запустить сервисы через docker-compose в фоне
 down: ## Остановить и удалить сервисы docker-compose
 	docker compose down
 
+restart:
+	docker compose down && docker compose up -d --build 
 logs: ## Посмотреть логи docker-compose
 	docker compose logs -f
 

@@ -22,6 +22,7 @@ python3 -m venv .venv
 source .venv/bin/activate
 make dev-install             # установка зависимостей
 cp .env.example .env         # создай .env и заполни токены/настройки
+                            # (шаблон перечисляет обязательные переменные)
 make run                     # запуск бота
 ```
 
@@ -51,7 +52,7 @@ docker compose up -d        # запуск сервиса
 docker compose logs -f      # просмотр логов
 ```
 
-Dockerfile подтягивает XRay CLI (v1.8.14) внутрь контейнера, чтобы бот мог управлять клиентами через API.
+Dockerfile подтягивает XRay CLI (по умолчанию `25.10.15`) внутрь контейнера, чтобы бот мог управлять клиентами через API. При необходимости можно переопределить версию через `--build-arg XRAY_VERSION=...`.
 
 ## Гайд по установке на Ubuntu 24.04 LTS
 
@@ -66,6 +67,8 @@ sudo python3 scripts/setup_ubuntu.py --admin vpppn --ports 443 10085
 - установит Docker Engine и compose plugin;
 - создаст пользователя `vpppn` и добавит его в группы `sudo` и `docker`;
 - откроет указанные порты через UFW (по умолчанию 443 и 10085).
+
+Если хочешь проверить действия, добавь `--dry-run` — команды будут выведены, но не выполнены. Отдельные шаги можно отключить флагами, например `--skip-docker`, если движок уже стоит.
 
 ### 2. Брандмауэр
 Если пропустил скрипт, открой порты вручную:
@@ -87,7 +90,8 @@ sudo usermod -aG docker $USER
 1. Скачай бинарь:
     ```bash
     sudo mkdir -p /etc/xray /var/log/xray
-    sudo curl -L https://github.com/XTLS/Xray-core/releases/download/v1.8.14/Xray-linux-64.zip -o /tmp/xray.zip
+    XRAY_VERSION=25.10.15
+    sudo curl -L "https://github.com/XTLS/Xray-core/releases/download/v${XRAY_VERSION}/Xray-linux-64.zip" -o /tmp/xray.zip
     sudo apt install -y unzip && sudo unzip /tmp/xray.zip -d /usr/local/share/xray
     sudo install -m 755 /usr/local/share/xray/xray /usr/local/bin/xray
     ```
@@ -101,6 +105,11 @@ sudo usermod -aG docker $USER
     ```
 
    Скрипт создаст unit-файл, перезагрузит systemd и запустит сервис. Используй `--dry-run`, чтобы просто посмотреть содержимое.
+
+   Дополнительные флаги:
+   - `--user` — под кем запускать XRay (по умолчанию `root`).
+   - `--unit-path` — куда сохранить unit, если нужно своё имя.
+   - `--log-dir` — каталог для логов (создаётся автоматически).
 
 > ⚠️ XRay стартует даже с пустым config.json. После первого запуска бота файл перезапишется.
 
@@ -148,6 +157,10 @@ sudo systemctl status xray
 - `make lint` / `make format` — проверки Ruff.
 - `make test` — PyTest (включает негативные сценарии API XRay).
 - `make clean` — очистка кешей и артефактов.
+
+## Скрипты автоматизации
+- `scripts/setup_ubuntu.py` — готовит «чистый» Ubuntu 22.04/24.04: ставит Docker, настраивает UFW и создаёт системного пользователя. Запускай с `sudo`, смотри флаги `--admin`, `--ports`, `--skip-docker`, `--dry-run`.
+- `scripts/install_xray_service.py` — разворачивает systemd‑юнит для XRay. Принимает параметры `--user`, `--exec`, `--config`, `--unit-path`, `--log-dir`; флаг `--dry-run` покажет результат без записи.
 
 ## Структура проекта
 ```

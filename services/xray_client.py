@@ -28,12 +28,12 @@ def _api_server() -> str:
     return f"127.0.0.1:{settings.XRAY_API_PORT}"
 
 
-def _run_xray_api(*args: str, check: bool = True) -> subprocess.CompletedProcess[str]:
+def _run_xray_api(command: str, *params: str, check: bool = True) -> subprocess.CompletedProcess[str]:
     """
     Вызывает бинарь xray с подкомандой api.
     Бросает исключение при ошибке и возвращает CompletedProcess.
     """
-    cmd = ["xray", "api", f"--server={_api_server()}", *args]
+    cmd = ["xray", "api", command, f"--server={_api_server()}", *params]
     logger.debug("Выполняю команду: %s", " ".join(cmd))
     try:
         result = subprocess.run(cmd, check=False, capture_output=True, text=True)
