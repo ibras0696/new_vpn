@@ -30,6 +30,27 @@ pyproject.toml     # PEP 621 + Setuptools
 - Токен Telegram-бота, ID администратора.
 - XRay Core установлен на том сервере, где будут применяться конфиги.
 
+## Быстрый bootstrap-скрипт
+Для «чистого» Ubuntu 22.04/24.04 есть готовый сценарий, который делает большинство рутинных шагов:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ibras0696/new_vpn/main/scripts/bootstrap.sh \
+  | sudo APP_DIR=/opt/new_vpn bash
+```
+
+Скрипт:
+1. Проверяет зависимости, ставит пакеты (curl, git, make, python3, ufw и т.д.).
+2. Устанавливает Docker CE + compose plugin (если их ещё нет).
+3. При необходимости создаёт пользователя (`APP_USER=name`).
+4. Скачивает XRay Core указанной версии (`XRAY_VERSION`, по умолчанию 25.10.15) и настраивает systemd unit.
+5. Клонирует репозиторий в `APP_DIR` (по умолчанию `/opt/new_vpn`).
+
+Можно также запускать скрипт уже внутри репозитория: `sudo bash scripts/bootstrap.sh` — он не будет повторно клонировать проект, если `.git` уже существует.
+
+Переменные окружения, которые можно переопределить: `APP_DIR`, `REPO_URL`, `APP_USER`, `UFW_PORTS="443 10085"`, `XRAY_VERSION`.
+
+После выполнения bootstrap дальше действуй по шагам из раздела «Развёртывание вручную»: заполни `.env`, подними контейнер, скопируй сгенерированный `config.json` в `/etc/xray/`, перезапусти XRay и проверь доступ к API.
+
 ## Локальный запуск (без Docker)
 1. Клонируй репозиторий `git clone https://github.com/ibras0696/new_vpn.git` и перейди в каталог.
 2. Создай виртуальное окружение: `python3 -m venv .venv && source .venv/bin/activate`.
@@ -103,7 +124,7 @@ docker compose logs -f bot
 sudo systemctl status xray
 ```
 
-## Развёртывание на сервере: полный сценарий
+## Развёртывание на сервере (ручной сценарий)
 
 ### Этап 0. Проверка связи
 ```bash
@@ -114,12 +135,18 @@ curl https://api.telegram.org
 Все команды должны выполняться без ошибок. Если нет — настрой DNS/маршруты (например, пропиши `DNS=1.1.1.1 8.8.8.8` в `/etc/systemd/resolved.conf`, перезапусти `systemd-resolved`, проверь `sudo ufw status verbose`).
 
 ### Этап 1. Подготовка сервера
-1. **Системные пакеты.** Выполни
+Если bootstrap-скрипт не запускал, сделай то же вручную:
+1. **Клонируй репозиторий, чтобы получить скрипты.**
+   ```bash
+   git clone https://github.com/ibras0696/new_vpn.git
+   cd new_vpn
+   ```
+2. **Установи пакеты и Docker.**
    ```bash
    sudo python3 scripts/setup_ubuntu.py --admin <user> --ports 443 10085
    ```
-   Скрипт поставит Git/Make/Docker/UFW и создаст пользователя. Перелогинься, чтобы применились группы docker/sudo.
-2. **Установка XRay.** Если XRay ещё не стоит, установи бинарь и подготовь systemd‑юнит один из способов:
+   (или вручную поставь git/make/docker/ufw и открой нужные порты). После выполнения перезайди в систему, чтобы применились группы docker/sudo.
+3. **Установи XRay и systemd unit:**
    ```bash
    sudo bash -c 'mkdir -p /etc/xray /var/log/xray'
    sudo bash -c 'curl -L https://github.com/XTLS/Xray-core/releases/download/v25.10.15/Xray-linux-64.zip -o /tmp/xray.zip'
@@ -127,12 +154,16 @@ curl https://api.telegram.org
    sudo bash -c 'install -m 755 /usr/local/share/xray/xray /usr/local/bin/xray'
    sudo python3 scripts/install_xray_service.py --exec /usr/local/bin/xray --config /etc/xray/config.json
    ```
-   После этого `sudo systemctl status xray` должен показывать активный (пусть пока конфиг пустой).
+   Теперь `sudo systemctl status xray` должен показывать активный сервис.
 
 ### Этап 2. Подготовка проекта и `.env`
+Если ты ещё не в каталоге проекта (например, только что выполнил bootstrap и уже находишься в `/opt/new_vpn`, пропусти следующие две команды):
 ```bash
 git clone https://github.com/ibras0696/new_vpn.git
 cd new_vpn
+```
+Далее подготовь рабочие файлы:
+```bash
 cp .env.example .env
 mkdir -p etc/xray   # каталог для конфигов внутри репозитория
 ```
