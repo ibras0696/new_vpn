@@ -10,7 +10,8 @@ WORKDIR /app
 
 # Устанавливаем системные зависимости, необходимые для сборки некоторых пакетов
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends build-essential libjpeg62-turbo-dev zlib1g-dev curl unzip ca-certificates && \
+    apt-get install -y --no-install-recommends \
+        build-essential libjpeg62-turbo-dev zlib1g-dev curl unzip ca-certificates netcat-openbsd && \
     rm -rf /var/lib/apt/lists/*
 
 # Устанавливаем бинарь XRay CLI (для управления API)

@@ -1,5 +1,19 @@
-version: "3.9"
+# version: "3.9"
 
+# services:
+#   bot:
+#     build:
+#       context: .
+#     image: vpppn-bot:latest
+#     env_file:
+#       - .env
+#     command: ["python", "-m", "main"]
+#     restart: unless-stopped
+#     volumes:
+#       - ./data:/app/data
+#       - ./etc/xray:/etc/xray
+#     extra_hosts:
+#       - "host.docker.internal:host-gateway"
 services:
   bot:
     build:
@@ -9,8 +23,7 @@ services:
       - .env
     command: ["python", "-m", "main"]
     restart: unless-stopped
+    network_mode: "host"
     volumes:
       - ./data:/app/data
       - ./etc/xray:/etc/xray
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
