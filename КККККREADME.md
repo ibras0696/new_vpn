@@ -1,243 +1,250 @@
 Отлично 💪
-Вот готовая, доработанная версия твоего README — **v1.1 (Server-Ready Edition)**
-Я внёс только нужные правки: никакой воды, всё чисто, структурно и рассчитано на нормальный Linux-сервер.
-👇 Можешь просто заменить свой `README.md` этим файлом и закоммитить в `main`.
+Сделаем полностью **правильный README.md (v1.2 — production edition)**,
+который реально можно использовать на чистом **Ubuntu-сервере**, чтобы **развернуть всё от нуля до рабочего Telegram-бота + XRay API**.
 
 ---
 
-# new_vpn — Telegram-бот для управления VLESS-ключами
+📄 Ниже — финальный, откорректированный текст файла.
+После проверки я сгенерирую тебе `README.md`, готовый для скачивания.
 
-Бот помогает администратору выдавать, просматривать и отзывать VLESS-ключи для XRay.
+---
+
+# new_vpn — Telegram-бот для управления VLESS-ключами (XRay API)
+
+Бот помогает администратору выдавать, просматривать и отзывать VLESS-ключи для **XRay**.
 Ключи публикуются в Telegram одним нажатием с QR-кодом, а состояние XRay синхронизируется через API.
 
 ---
 
-## ⚙️ Возможности
+## 🚀 Возможности
 
-* Инлайн-меню для создания ключей с пресетами и произвольным сроком.
-* Просмотр и удаление ключей с подтверждением.
-* Автоматическая регистрация/удаление клиентов в XRay API.
-* Планировщик очистки просроченных ключей.
-* Скрипты настройки Ubuntu и установки systemd-юнита XRay.
-* Makefile с типовыми задачами разработки и деплоя.
+* Создание и удаление VLESS-ключей через Telegram-меню.
+* QR-код и VLESS-ссылка одним нажатием.
+* Автоматическая регистрация клиентов в XRay API.
+* Планировщик удаления просроченных ключей.
+* Health-check XRay при старте.
+* Скрипты быстрой установки Docker и XRay на Ubuntu.
 
 ---
 
-## 🧩 Структура проекта
+## 📦 Структура проекта
 
 ```
-handlers/          # Telegram-хендлеры, клавиатуры и FSM
-services/          # Интеграция с XRay, планировщик, клиенты
-data/              # async SQLAlchemy: модели, репозитории, слой БД
-filters/           # Кастомные фильтры aiogram (админ и т.п.)
-scripts/           # Автоматизация подготовки сервера и XRay
-tests/             # PyTest (XRay API негативные сценарии)
-Dockerfile         # Образ бота с XRay CLI
-docker-compose.yml # Сервис "bot" (переменные берёт из .env)
-Makefile           # Частые команды: установка, запуск, Docker, тесты
-pyproject.toml     # PEP 621 + Setuptools
+handlers/          # Хендлеры и клавиатуры aiogram
+services/          # Интеграция с XRay и планировщик
+data/              # async SQLAlchemy ORM
+filters/           # Кастомные фильтры aiogram
+scripts/           # setup_ubuntu.py / install_xray_service.py
+etc/xray/          # шаблон конфига config.dev.json
+tests/             # PyTest сценарии для API
+Dockerfile         # образ Telegram-бота
+docker-compose.yml # контейнер bot
+Makefile           # команды сборки и запуска
+pyproject.toml     # зависимости и метаданные
 ```
 
 ---
 
 ## 🧾 Требования
 
-* Ubuntu 22.04 / 24.04 с интернетом и доступом к Telegram, Docker Hub и GitHub.
-* Python ≥ 3.11, Git, Make, Docker + Docker Compose.
-* Токен Telegram-бота, ID администратора.
-* XRay Core установлен на том же сервере (бот управляет его API).
+* Ubuntu **22.04 / 24.04** с интернетом и root-доступом.
+* Python ≥ 3.11, Git, Make, Docker, Docker Compose.
+* Telegram Bot API токен и ID администратора.
+* XRay Core (устанавливается на этом же сервере).
 
 ---
 
-## 🚀 Локальный запуск (без Docker)
+## 🧰 Установка: пошагово
 
-```bash
-git clone https://github.com/ibras0696/new_vpn.git
-cd new_vpn
-python3 -m venv .venv && source .venv/bin/activate
-make dev-install
-cp .env.example .env
-```
-
-Минимальные настройки для локального теста:
-
-```
-BOT_TOKEN=<твой_токен>
-ADMIN_ID=<твой_id>
-XRAY_API_ENABLED=false
-```
-
-Запуск:
-
-```bash
-make run
-```
-
-> Если XRay API отсутствует, установи `XRAY_API_ENABLED=false`, чтобы бот пропускал интеграцию.
-
----
-
-## 🧰 Makefile: основные команды
-
-| Команда                                 | Описание                                     |
-| --------------------------------------- | -------------------------------------------- |
-| `make help`                             | показать все цели                            |
-| `make dev-install`                      | установка зависимостей с тестами и линтингом |
-| `make run`                              | локальный запуск                             |
-| `make docker-build`                     | сборка Docker-образа                         |
-| `make compose-up` / `make compose-down` | запуск / остановка сервиса                   |
-| `make docker-logs`                      | просмотр логов контейнера                    |
-| `make test`                             | запуск PyTest                                |
-| `make clean`                            | очистка кешей                                |
-
----
-
-## ⚙️ Конфигурация `.env`
-
-| Переменная         | Значение                                                  |
-| ------------------ | --------------------------------------------------------- |
-| `BOT_TOKEN`        | Токен Telegram-бота                                       |
-| `ADMIN_ID`         | Telegram ID администратора                                |
-| `DB_ENGINE`        | `sqlite+aiosqlite` или `postgresql+asyncpg`               |
-| `DB_NAME`          | Путь/имя базы                                             |
-| `XRAY_DOMAIN`      | Домен или IP сервера                                      |
-| `XRAY_PORT`        | Порт VLESS входа                                          |
-| `XRAY_SECURITY`    | `tls` или `none`                                          |
-| `XRAY_NETWORK`     | `tcp`, `ws`, `grpc`                                       |
-| `XRAY_API_ENABLED` | `true` / `false`                                          |
-| `XRAY_API_LISTEN`  | Адрес, где XRay слушает API (`0.0.0.0` для Linux)         |
-| `XRAY_API_HOST`    | Адрес, куда бот подключается (внешний IP или `127.0.0.1`) |
-| `XRAY_API_PORT`    | Порт API (по умолчанию `10085`)                           |
-| `XRAY_INBOUND_TAG` | Тег inbound-а в XRay                                      |
-
-> ⚠️ Для Linux-сервера укажи:
-> `XRAY_API_LISTEN=0.0.0.0`
-> `XRAY_API_HOST=<внешний_IP_или_127.0.0.1>`
-> и добавь `network_mode: "host"` в `docker-compose.yml`.
-
----
-
-## 🐳 Docker-развёртывание
-
-```bash
-make docker-build
-docker compose up -d
-docker compose logs -f bot
-```
-
-### Примечание для Linux
-
-Добавь в `docker-compose.yml` блок:
-
-```yaml
-services:
-  bot:
-    network_mode: "host"
-```
-
-Это позволит контейнеру напрямую видеть XRay API и интернет (без `host.docker.internal`).
-
----
-
-## 🔧 Автоматизация (Ubuntu)
-
-### scripts/setup_ubuntu.py
-
-Готовит сервер: ставит Docker, настраивает UFW, создаёт пользователя.
-
-```bash
-sudo python3 scripts/setup_ubuntu.py --admin vpppn --ports 443 10085
-```
-
-### scripts/install_xray_service.py
-
-Создаёт systemd-юнит для XRay:
-
-```bash
-sudo python3 scripts/install_xray_service.py --exec /usr/local/bin/xray --config /etc/xray/config.json
-```
-
----
-
-## ☑️ Полное развёртывание на сервере
-
-### 1. Проверка связи
+### Этап 0. Проверка связи
 
 ```bash
 ping -c 3 8.8.8.8
 curl https://api.telegram.org
+nslookup registry-1.docker.io
 ```
 
-### 2. Подготовка XRay
+Если есть проблемы — настрой DNS, например:
+
+```bash
+sudo nano /etc/systemd/resolved.conf
+# добавь строку:
+DNS=1.1.1.1 8.8.8.8
+sudo systemctl restart systemd-resolved
+```
+
+---
+
+### Этап 1. Установка Docker и зависимостей
+
+#### Вариант A — через скрипт
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ibras0696/new_vpn/main/scripts/setup_ubuntu.py -o /tmp/setup_ubuntu.py
+sudo python3 /tmp/setup_ubuntu.py --admin vpppn --ports 443 10085
+```
+
+Скрипт:
+
+* обновит систему и поставит `git`, `curl`, `docker`, `ufw`;
+* создаст пользователя `vpppn`;
+* откроет порты 443 (VLESS) и 10085 (XRay API).
+
+#### Вариант B — вручную
+
+```bash
+sudo apt update && sudo apt install -y git make curl unzip ufw
+curl -fsSL https://get.docker.com | sudo sh
+sudo usermod -aG docker $USER
+sudo ufw allow OpenSSH
+sudo ufw allow 443/tcp
+sudo ufw allow 10085/tcp
+sudo ufw enable
+```
+
+---
+
+### Этап 2. Установка XRay Core
 
 ```bash
 sudo mkdir -p /etc/xray /var/log/xray
-sudo curl -L https://github.com/XTLS/Xray-core/releases/download/v25.10.15/Xray-linux-64.zip -o /tmp/xray.zip
-sudo apt install -y unzip && sudo unzip /tmp/xray.zip -d /usr/local/share/xray
+curl -L https://github.com/XTLS/Xray-core/releases/download/v25.10.15/Xray-linux-64.zip -o /tmp/xray.zip
+sudo apt install -y unzip
+sudo unzip /tmp/xray.zip -d /usr/local/share/xray
 sudo install -m 755 /usr/local/share/xray/xray /usr/local/bin/xray
-sudo python3 scripts/install_xray_service.py --exec /usr/local/bin/xray --config /etc/xray/config.json
 ```
 
-### 3. Настройка проекта
+Создаём и запускаем systemd-юнит:
 
 ```bash
-git clone https://github.com/ibras0696/new_vpn.git
+curl -fsSL https://raw.githubusercontent.com/ibras0696/new_vpn/main/scripts/install_xray_service.py -o /tmp/install_xray_service.py
+sudo python3 /tmp/install_xray_service.py \
+  --exec /usr/local/bin/xray \
+  --config /etc/xray/config.json
+```
+
+Проверяем:
+
+```bash
+sudo systemctl status xray
+```
+
+---
+
+### Этап 3. Клонирование проекта и настройка окружения
+
+```bash
+cd /opt
+sudo git clone https://github.com/ibras0696/new_vpn.git
 cd new_vpn
-cp .env.example .env
-nano .env
+sudo cp .env.example .env
+sudo mkdir -p etc/xray
+sudo cp etc/xray/config.dev.json /etc/xray/config.json
 ```
 
-Минимальные поля:
+Отредактируй `.env`:
+
+```bash
+sudo nano .env
+```
+
+Пример для продакшена:
 
 ```
-BOT_TOKEN=<твой_токен>
-ADMIN_ID=<твой_id>
+BOT_TOKEN=<ТВОЙ_ТОКЕН>
+ADMIN_ID=<ТВОЙ_ID>
+XRAY_CONFIG_PATH=/etc/xray/config.json
 XRAY_DOMAIN=141.98.235.192
+XRAY_PORT=443
+XRAY_SECURITY=none
+XRAY_NETWORK=tcp
 XRAY_API_ENABLED=true
 XRAY_API_LISTEN=0.0.0.0
 XRAY_API_HOST=141.98.235.192
 XRAY_API_PORT=10085
+XRAY_INBOUND_TAG=vless-inbound
 ```
 
 ---
 
-### 4. Запуск
+### Этап 4. Настройка Docker
+
+Открой `docker-compose.yml`:
 
 ```bash
+nano docker-compose.yml
+```
+
+и добавь:
+
+```yaml
+network_mode: "host"
+```
+
+Пример итогового файла:
+
+```yaml
+version: "3.9"
+services:
+  bot:
+    build:
+      context: .
+    image: vpppn-bot:latest
+    env_file:
+      - .env
+    command: ["python", "-m", "main"]
+    restart: unless-stopped
+    network_mode: "host"
+    volumes:
+      - ./data:/app/data
+      - ./etc/xray:/etc/xray
+```
+
+---
+
+### Этап 5. Сборка и запуск контейнера
+
+```bash
+make docker-build
 docker compose up -d --build
+docker compose logs -f bot
 ```
-
-После запуска:
-
-```bash
-sudo mkdir -p /etc/xray
-sudo cp ./etc/xray/config.json /etc/xray/config.json
-sudo systemctl restart xray
-sudo ss -ltnp | grep 10085
-```
-
-Должно быть: `*:10085 (LISTEN)`
 
 ---
 
-### 5. Проверка API из контейнера
+### Этап 6. Проверка XRay API
+
+Проверь, слушает ли XRay порт 10085:
 
 ```bash
-docker compose exec bot sh -c "apt update -qq && apt install -y netcat-openbsd && nc -vz 141.98.235.192 10085"
+sudo ss -ltnp | grep 10085
 ```
 
 Ожидаем:
 
 ```
-Connection to 141.98.235.192 10085 port [tcp/*] succeeded!
+LISTEN ... *:10085 ...
 ```
+
+Проверь соединение из контейнера:
+
+```bash
+docker compose exec bot python - <<'PY'
+import socket
+socket.create_connection(('141.98.235.192', 10085), timeout=3)
+print("✅ XRay API доступен")
+PY
+```
+
+Если видишь `✅`, значит всё готово.
 
 ---
 
-### 6. Проверка работы бота
+### Этап 7. Проверка бота
 
-* Открой Telegram → `/start`
-* Создай тестовый ключ → должен появиться QR и ссылка без ошибок `failed to dial`.
+* В Telegram напиши `/start` с ID администратора.
+* Создай тестовый ключ — должен появиться QR-код и ссылка.
+* В логах бота (`docker compose logs -f bot`) не должно быть `failed to dial`.
 
 ---
 
@@ -246,6 +253,10 @@ Connection to 141.98.235.192 10085 port [tcp/*] succeeded!
 ```bash
 make test
 ```
+
+PyTest проверяет взаимодействие с XRay API и обработку ошибок.
+
+---
 
 ## 🩺 Отладка
 
@@ -256,10 +267,30 @@ journalctl -u xray -f
 
 ---
 
-## 🧾 Лицензия
+## ⚙️ Полезные команды
 
-MIT © 2025. Contributions welcome.
+| Команда                       | Действие                        |
+| ----------------------------- | ------------------------------- |
+| `make run`                    | Локальный запуск без Docker     |
+| `make docker-build`           | Сборка Docker-образа            |
+| `docker compose ps`           | Проверить запущенные контейнеры |
+| `docker compose restart bot`  | Перезапустить бот               |
+| `sudo systemctl restart xray` | Перезапустить XRay              |
+| `sudo journalctl -u xray -f`  | Смотреть логи XRay              |
 
 ---
 
-Хочешь, я сразу сделаю diff-версию (`git patch`), чтобы ты просто применил её через `git apply` и не правил вручную?
+## 🔒 Безопасность
+
+* Не открывай порт `10085` в интернет.
+* Разреши доступ только из localhost (бот и XRay на одном сервере).
+* Храни `.env` отдельно, не коммить в репозиторий.
+
+---
+
+## 🧾 Лицензия
+
+MIT © 2025
+Разработка и поддержка: [@ibras0696](https://github.com/ibras0696)
+
+---
