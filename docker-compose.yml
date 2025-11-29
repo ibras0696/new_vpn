@@ -1,29 +1,25 @@
-# version: "3.9"
+version: "3.9"
 
-# services:
-#   bot:
-#     build:
-#       context: .
-#     image: vpppn-bot:latest
-#     env_file:
-#       - .env
-#     command: ["python", "-m", "main"]
-#     restart: unless-stopped
-#     volumes:
-#       - ./data:/app/data
-#       - ./etc/xray:/etc/xray
-#     extra_hosts:
-#       - "host.docker.internal:host-gateway"
 services:
-  bot:
-    build:
-      context: .
-    image: vpppn-bot:latest
-    env_file:
-      - .env
-    command: ["python", "-m", "main"]
+  app:
+    build: .
     restart: unless-stopped
-    network_mode: "host"
+    env_file: .env
+    depends_on:
+      - db
+    command: ["python", "-m", "app.main"]
+
+  db:
+    image: postgres:15
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: vpn
+      POSTGRES_PASSWORD: vpn
+      POSTGRES_DB: vpn
     volumes:
-      - ./data:/app/data
-      - ./etc/xray:/etc/xray
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+
+volumes:
+  pgdata:
