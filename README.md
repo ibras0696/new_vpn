@@ -10,12 +10,22 @@
 - wireguard-tools (генерация ключей внутри контейнера)
 - Docker / docker-compose
 
-## Запуск
-1. Создай `.env` на основе `.env.example` и укажи `BOT_TOKEN` и `ADMIN_IDS` (через запятую).  
-   - Обязательно задай `WG_ENDPOINT`, `WG_SERVER_PUBLIC_KEY`, при необходимости `WG_ALLOWED_IPS`, `WG_DNS`, `WG_CLIENT_ADDRESS_CIDR`.  
-   - Биллинг отключён (`BILLING_ENABLED=false`, `BILLING_COST_PER_KEY=0`), лимит устройств (`MAX_KEYS_PER_USER`) действует только для обычных пользователей; админы без лимитов.
-2. `make up` (или `docker compose up --build`).  
-3. При старте `alembic upgrade head` прогонит миграции, после этого запустится бот.
+## Быстрый старт
+1. Скопируй `.env.example` → `.env` и заполни:
+   - `BOT_TOKEN`, `ADMIN_IDS`.
+   - WG_* под свой сервер (`WG_ENDPOINT`, `WG_SERVER_PUBLIC_KEY`, `WG_CLIENT_ADDRESS_CIDR` и т.д.).
+   - `SERVER_NAME`/`EMAIL` для TLS или поставь `DISABLE_CERTBOT=true`, если работаешь по IP/без домена (nginx стартует без HTTPS).
+   - `LOG_LEVEL` по желанию (INFO по умолчанию).
+2. (Опционально) `bash scripts/preflight_check.sh` — проверка DNS/портов/BOT_TOKEN локально.
+3. Запуск: `make up` или `docker compose up -d --build`. Миграции применяются автоматически.
+4. Логи: `make app-logs` и `docker compose logs -f nginx` (если включён nginx/certbot).
+
+Makefile:
+- `make up/down` — поднять/остановить весь стек.
+- `make app` — только приложение (без -d).
+- `make migrate` — прогнать Alembic.
+- `make compose-recreate` — пересоздать app с новыми env.
+- `make app-logs` / `make db-logs` / `make logs` — логи.
 
 ## Что умеет бот
 - /start с инлайн-меню; доступ в админ-панель только для `ADMIN_IDS`.
@@ -42,7 +52,6 @@
 - `deploy/` — примеры конфигов:
   - `deploy/nginx/vpppn.conf.example` — шаблон nginx с прокси и TLS.
   - `deploy/nginx/` — Dockerfile + entrypoint для контейнера nginx+certbot.
-- `.env.nginx.example` — переменные для nginx+certbot (домен, email, upstream).
 
 Примечание по сертификатам в Docker: при смене `SERVER_NAME` entrypoint удалит старые каталоги `/etc/letsencrypt/{live,archive,renewal}` для прежних доменов и запросит новый сертификат для актуального.
 
@@ -64,6 +73,7 @@
 - TTL «Безлимит» = ~10 лет вперёд, не бесконечность.
 - При первом старте Postgres, если тормозит, nginx может дать 502 — `restart` у сервиса app перекроет после запуска БД.
 - DeprecationWarning aiogram (parse_mode): можно убрать, поменяв инициализацию бота на `DefaultBotProperties(parse_mode=ParseMode.HTML)` (оставлено в TODO).
+- Приложение — Telegram-бот (polling), HTTP API нет; nginx нужен только для TLS-прокси/будущего веба.
 
 ## Бэкапы и восстановление
 - База: том `pgdata`.
