@@ -47,6 +47,29 @@
 
 Подробный гайд по развёртыванию см. в `docs/DEPLOY.md`.
 
+## Перед запуском (чеклист)
+- DNS: `SERVER_NAME` должен резолвиться на сервер (A/AAAA).  
+- Порты: 80/443 (для certbot/nginx) и 51820/UDP (WireGuard) должны быть открыты на фаерволе/облаке.  
+- BOT_TOKEN: валиден (иначе aiogram упадёт с `TokenValidationError`).  
+- Тома/права: `./data/letsencrypt`, `./data/certbot/www`, `pgdata` доступны для записи.
+
+## Предупреждения и подводные камни
+- Certbot не выпустит сертификат, если домен не резолвится или 80/443 закрыты — nginx-контейнер может завершиться; исправьте DNS/фаервол и перезапустите `docker compose up -d --build`.
+- Неверный BOT_TOKEN — бот не стартует.
+- Изменение `WG_CLIENT_ADDRESS_CIDR` или `WG_ENDPOINT` без пересоздания ключей может вызвать конфликт адресов/невалидные конфиги — перевыдавайте ключи.
+- Интерфейс WireGuard не настраивается автоматически: приложение генерирует конфиги, но добавление пиров в системный WG делайте вручную (`scripts/wg_server_init.sh`, `scripts/wg_peer_add.sh`) или допишите автоматизацию.
+- TTL «Безлимит» = ~10 лет вперёд, не бесконечность.
+- При первом старте Postgres, если тормозит, nginx может дать 502 — `restart` у сервиса app перекроет после запуска БД.
+- DeprecationWarning aiogram (parse_mode): можно убрать, поменяв инициализацию бота на `DefaultBotProperties(parse_mode=ParseMode.HTML)` (оставлено в TODO).
+
+## Бэкапы и восстановление
+- База: том `pgdata`.
+- TLS: `./data/letsencrypt` (серты/метаданные), `./data/certbot/www` (webroot). При смене домена auto-clean в entrypoint удалит старые каталоги, но бэкапить полезно.
+
+## Логирование/мониторинг
+- Быстрые логи: `docker compose logs -f app` и `docker compose logs -f nginx`.
+- Прометей/алерты не подключены — добавьте при необходимости.
+
 ## Скрипты: когда и как запускать
 - Bootstrap сервера (Docker + wg): `sudo bash scripts/bootstrap_server.sh` (используй только на чистом сервере).
 - Генерация серверного WG-конфига: `sudo WG_IFACE=wg0 WG_PORT=51820 WG_ADDRESS=10.8.0.1/24 bash scripts/wg_server_init.sh`.
