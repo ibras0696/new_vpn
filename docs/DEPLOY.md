@@ -28,9 +28,10 @@ docker compose up -d --build
    - БД стартует первой; у сервиса app есть depends_on с healthcheck БД, nginx ждёт app по depends_on.
 4. Что делает контейнер `nginx`:
    - Рендерит конфиг из `deploy/nginx/conf.d/vpppn.conf.template`.
-   - Если сертификат для `SERVER_NAME` не найден, запрашивает его через webroot (папка `/var/www/certbot` смонтирована на `./data/certbot/www`).
+   - Если сертификат для `SERVER_NAME` не найден, запрашивает его через webroot (папка `/var/www/certbot` смонтирована на `./data/certbot/www`). Для запроса поднимается временный nginx, затем основной перезапускается.
    - Раз в 12 часов выполняет `certbot renew` и `nginx -s reload`.
    - При смене домена (`SERVER_NAME`) удаляет старые каталоги Let’s Encrypt и запрашивает новый сертификат.
+   - Если поставить `DISABLE_CERTBOT=true`, nginx стартует без TLS (HTTP), certbot не вызывается — удобно для тестов по IP.
 5. Логи nginx/certbot: `docker compose logs -f nginx`.
 
 Полезные каталоги (монтируются из хоста):
