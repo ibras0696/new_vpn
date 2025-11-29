@@ -35,6 +35,7 @@ class Settings:
     billing_cost_per_key: int
     billing_enabled: bool
     cleanup_interval_minutes: int
+    log_level: str
 
 
 def load_settings() -> Settings:
@@ -63,4 +64,5 @@ def load_settings() -> Settings:
         billing_cost_per_key=int(os.getenv("BILLING_COST_PER_KEY", "1")),
         billing_enabled=os.getenv("BILLING_ENABLED", "false").lower() == "true",
         cleanup_interval_minutes=int(os.getenv("CLEANUP_INTERVAL_MINUTES", "10")),
+        log_level=os.getenv("LOG_LEVEL", "INFO"),
     )

@@ -11,6 +11,7 @@ echo "[ENTRYPOINT] Rendering nginx config for ${SERVER_NAME}, upstream app:${UPS
 envsubst '${SERVER_NAME} ${UPSTREAM_PORT}' < /etc/nginx/conf.d/vpppn.conf.template > /etc/nginx/conf.d/default.conf
 
 mkdir -p /var/www/certbot
+nginx -t
 
 if [[ -d "/etc/letsencrypt/live" ]]; then
   for d in /etc/letsencrypt/live/*; do
@@ -25,9 +26,13 @@ fi
 
 if [[ ! -f "${CERT_DIR}/fullchain.pem" ]]; then
   echo "[ENTRYPOINT] No existing certs for ${SERVER_NAME}, requesting..."
+  echo "[ENTRYPOINT] Starting temporary nginx for ACME challenge..."
+  nginx
   certbot certonly --webroot -w /var/www/certbot -d "${SERVER_NAME}" --email "${EMAIL}" --agree-tos --non-interactive || {
     echo "[ENTRYPOINT] Initial cert issuance failed"; exit 1;
   }
+  echo "[ENTRYPOINT] Stopping temporary nginx after issuance..."
+  nginx -s stop || true
 else
   echo "[ENTRYPOINT] Existing certs found for ${SERVER_NAME}, skipping issuance."
 fi

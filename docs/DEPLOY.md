@@ -25,7 +25,7 @@ make up
 ```
 docker compose up -d --build
 ```
-   - или, если хочешь только прокси позже: `docker compose up -d app db` и затем `docker compose up -d nginx`.
+   - БД стартует первой; у сервиса app есть depends_on с healthcheck БД, nginx ждёт app по depends_on.
 4. Что делает контейнер `nginx`:
    - Рендерит конфиг из `deploy/nginx/conf.d/vpppn.conf.template`.
    - Если сертификат для `SERVER_NAME` не найден, запрашивает его через webroot (папка `/var/www/certbot` смонтирована на `./data/certbot/www`).

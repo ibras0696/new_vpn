@@ -38,6 +38,7 @@
   - `scripts/wg_server_init.sh` — генерация серверных ключей и чернового `/etc/wireguard/wg0.conf`.
   - `scripts/wg_peer_add.sh` — добавление пиров в конфиг и применение через `wg syncconf`.
   - `scripts/nginx_certbot_setup.sh` — установка Nginx+Certbot, выпуск TLS-серта и post-hook для авто-релоада.
+  - `scripts/preflight_check.sh` — простая проверка DNS/BOT_TOKEN/портов перед запуском.
 - `deploy/` — примеры конфигов:
   - `deploy/nginx/vpppn.conf.example` — шаблон nginx с прокси и TLS.
   - `deploy/nginx/` — Dockerfile + entrypoint для контейнера nginx+certbot.
@@ -55,6 +56,7 @@
 
 ## Предупреждения и подводные камни
 - Certbot не выпустит сертификат, если домен не резолвится или 80/443 закрыты — nginx-контейнер может завершиться; исправьте DNS/фаервол и перезапустите `docker compose up -d --build`.
+  При первичном выпуске entrypoint поднимает временный nginx для webroot-челленджа, затем перезапускает основной nginx.
 - Неверный BOT_TOKEN — бот не стартует.
 - Изменение `WG_CLIENT_ADDRESS_CIDR` или `WG_ENDPOINT` без пересоздания ключей может вызвать конфликт адресов/невалидные конфиги — перевыдавайте ключи.
 - Интерфейс WireGuard не настраивается автоматически: приложение генерирует конфиги, но добавление пиров в системный WG делайте вручную (`scripts/wg_server_init.sh`, `scripts/wg_peer_add.sh`) или допишите автоматизацию.

@@ -4,6 +4,7 @@ import asyncio
 import logging
 
 from aiogram import Bot, Dispatcher
+from aiogram.client.default import DefaultBotProperties
 from aiogram.enums import ParseMode
 
 from app.bot.filters import AdminFilter
@@ -11,6 +12,7 @@ from app.bot.handlers import admin, common, user_keys
 from app.bot.middleware import ContextMiddleware
 from app.config import Settings, load_settings
 from app.db import get_session_maker
+from app.logging import configure_logging
 from app.migrations_runner import run_migrations
 from app.services import KeyService
 
@@ -46,7 +48,10 @@ async def main(settings: Settings) -> None:
 
     session_maker = get_session_maker(settings)
 
-    bot = Bot(token=settings.bot_token, parse_mode=ParseMode.HTML)
+    bot = Bot(
+        token=settings.bot_token,
+        default=DefaultBotProperties(parse_mode=ParseMode.HTML),
+    )
 
     dp = Dispatcher()
     dp.update.middleware(ContextMiddleware(settings=settings, session_maker=session_maker))
@@ -70,8 +75,8 @@ async def main(settings: Settings) -> None:
 def run() -> None:
     """Запускает миграции и бот."""
 
-    logging.basicConfig(level=logging.INFO)
     settings = load_settings()
+    configure_logging(settings.log_level)
     if not settings.bot_token or ":" not in settings.bot_token:
         raise SystemExit("BOT_TOKEN не задан или неверный. Укажи корректный токен в .env")
     run_migrations(settings)
