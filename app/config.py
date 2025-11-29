@@ -25,6 +25,16 @@ class Settings:
     database_url: str
     max_keys_per_user: int
     default_key_ttl_hours: int
+    wg_endpoint: str
+    wg_server_public_key: str
+    wg_allowed_ips: set[str]
+    wg_dns: tuple[str, ...]
+    wg_client_address_cidr: str
+    wg_preshared_key: str | None
+    initial_balance: int
+    billing_cost_per_key: int
+    billing_enabled: bool
+    cleanup_interval_minutes: int
 
 
 def load_settings() -> Settings:
@@ -43,4 +53,14 @@ def load_settings() -> Settings:
         ),
         max_keys_per_user=int(os.getenv("MAX_KEYS_PER_USER", "3")),
         default_key_ttl_hours=int(os.getenv("DEFAULT_KEY_TTL_HOURS", "24")),
+        wg_endpoint=os.getenv("WG_ENDPOINT", "vpn.example.com:51820"),
+        wg_server_public_key=os.getenv("WG_SERVER_PUBLIC_KEY", "server_pub_key"),
+        wg_allowed_ips={item.strip() for item in os.getenv("WG_ALLOWED_IPS", "0.0.0.0/0").split(",") if item.strip()},
+        wg_dns=tuple(item.strip() for item in os.getenv("WG_DNS", "1.1.1.1").split(",") if item.strip()),
+        wg_client_address_cidr=os.getenv("WG_CLIENT_ADDRESS_CIDR", "10.8.0.0/24"),
+        wg_preshared_key=os.getenv("WG_PRESHARED_KEY") or None,
+        initial_balance=int(os.getenv("INITIAL_BALANCE", "10")),
+        billing_cost_per_key=int(os.getenv("BILLING_COST_PER_KEY", "1")),
+        billing_enabled=os.getenv("BILLING_ENABLED", "false").lower() == "true",
+        cleanup_interval_minutes=int(os.getenv("CLEANUP_INTERVAL_MINUTES", "10")),
     )

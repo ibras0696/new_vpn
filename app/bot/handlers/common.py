@@ -1,9 +1,8 @@
 from __future__ import annotations
 
-from aiogram import Bot, Router
+from aiogram import Bot, Router, F
 from aiogram.filters import CommandStart
 from aiogram.types import CallbackQuery, Message
-from aiogram.exceptions import SkipHandler
 
 from app.bot.callbacks import MenuAction
 from app.bot.keyboards import main_menu
@@ -26,7 +25,9 @@ def _is_admin(settings: Settings, user_id: int) -> bool:
 
 
 @router.message(CommandStart())
-async def handle_start(message: Message) -> None:
+async def handle_start(
+    message: Message, settings: Settings, session_maker: SessionMaker
+) -> None:
     """Обрабатывает /start и показывает главное меню.
 
     :param message: входящее сообщение.
@@ -35,16 +36,9 @@ async def handle_start(message: Message) -> None:
 
     if message.from_user is None:
         return
-    bot: Bot = message.bot
-    settings: Settings = bot["settings"]
-    session_maker: SessionMaker = bot["session_maker"]
 
     async with session_maker() as session:
-        service = KeyService(
-            session=session,
-            max_keys_per_user=settings.max_keys_per_user,
-            default_key_ttl_hours=settings.default_key_ttl_hours,
-        )
+        service = KeyService(session=session, settings=settings)
         await service.set_admins(settings.admin_ids)
         await service.ensure_user(message.from_user.id, message.from_user.username)
         await session.commit()
@@ -59,8 +53,10 @@ async def handle_start(message: Message) -> None:
     )
 
 
-@router.callback_query(MenuAction.filter())
-async def handle_menu(callback: CallbackQuery, callback_data: MenuAction) -> None:
+@router.callback_query(MenuAction.filter(F.action.in_(("home", "help"))))
+async def handle_menu(
+    callback: CallbackQuery, callback_data: MenuAction, settings: Settings
+) -> None:
     """Навигация по меню (home/help).
 
     :param callback: исходный CallbackQuery.
@@ -71,11 +67,7 @@ async def handle_menu(callback: CallbackQuery, callback_data: MenuAction) -> Non
     if callback.from_user is None:
         return
 
-    settings: Settings = callback.bot["settings"]
     action = callback_data.action
-
-    if action == "admin":
-        raise SkipHandler  # передаём в админский роутер
 
     if action == "home":
         await callback.message.edit_text(

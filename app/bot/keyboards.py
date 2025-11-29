@@ -1,10 +1,16 @@
 from __future__ import annotations
 
-from typing import Iterable, Sequence
+from typing import Sequence
 
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup
 
-from app.bot.callbacks import AdminAction, KeyCreateAction, KeyRevokeAction, MenuAction
+from app.bot.callbacks import (
+    AdminAction,
+    KeyCreateAction,
+    KeyRevokeAction,
+    KeyRotateAction,
+    MenuAction,
+)
 from app.models import VpnKey
 
 
@@ -30,21 +36,24 @@ def main_menu(user_is_admin: bool) -> InlineKeyboardMarkup:
 def key_create_keyboard() -> InlineKeyboardMarkup:
     """Клавиатура выбора срока ключа."""
 
-    hours_options = (12, 24, 72)
-    rows = [
-        [
-            InlineKeyboardButton(
-                text=f"{hours} ч", callback_data=KeyCreateAction(hours=hours).pack()
-            )
-            for hours in hours_options[:2]
-        ],
-        [
-            InlineKeyboardButton(
-                text=f"{hours} ч", callback_data=KeyCreateAction(hours=hours).pack()
-            )
-            for hours in hours_options[2:]
-        ],
+    options = [
+        ("1 день", 24),
+        ("1 неделя", 24 * 7),
+        ("30 дней", 24 * 30),
+        ("90 дней", 24 * 90),
+        ("Безлимит", 0),
     ]
+    rows = []
+    for i in range(0, len(options), 2):
+        chunk = options[i : i + 2]
+        rows.append(
+            [
+                InlineKeyboardButton(
+                    text=label, callback_data=KeyCreateAction(hours=hours).pack()
+                )
+                for label, hours in chunk
+            ]
+        )
     rows.append(
         [
             InlineKeyboardButton(text="⬅️ Назад", callback_data=MenuAction(action="home").pack())
@@ -54,7 +63,7 @@ def key_create_keyboard() -> InlineKeyboardMarkup:
 
 
 def keys_keyboard(keys: Sequence[VpnKey]) -> InlineKeyboardMarkup:
-    """Клавиатура отзыва для активных ключей."""
+    """Клавиатура действий над активными ключами."""
 
     rows: list[list[InlineKeyboardButton]] = []
     for key in keys:
@@ -62,6 +71,10 @@ def keys_keyboard(keys: Sequence[VpnKey]) -> InlineKeyboardMarkup:
             continue
         rows.append(
             [
+                InlineKeyboardButton(
+                    text=f"♻️ Ротировать {key.name}",
+                    callback_data=KeyRotateAction(key_id=str(key.id)).pack(),
+                ),
                 InlineKeyboardButton(
                     text=f"❌ Отозвать {key.name}",
                     callback_data=KeyRevokeAction(key_id=str(key.id)).pack(),
@@ -91,6 +104,12 @@ def admin_keyboard() -> InlineKeyboardMarkup:
                 InlineKeyboardButton(
                     text="Все ключи",
                     callback_data=AdminAction(action="all").pack(),
+                )
+            ],
+            [
+                InlineKeyboardButton(
+                    text="Алерты",
+                    callback_data=AdminAction(action="alerts").pack(),
                 )
             ],
             [

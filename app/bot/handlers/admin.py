@@ -13,14 +13,13 @@ router = Router()
 
 
 @router.callback_query(MenuAction.filter(F.action == "admin"))
-async def admin_panel(callback: CallbackQuery) -> None:
+async def admin_panel(callback: CallbackQuery, settings: Settings) -> None:
     """Открывает админ-панель.
 
     :param callback: входящий CallbackQuery.
     :return: None.
     """
 
-    settings: Settings = callback.bot["settings"]
     await callback.message.edit_text(
         "Админ-панель: выбери фильтр.",
         reply_markup=admin_keyboard(),
@@ -29,7 +28,12 @@ async def admin_panel(callback: CallbackQuery) -> None:
 
 
 @router.callback_query(AdminAction.filter())
-async def admin_lists(callback: CallbackQuery, callback_data: AdminAction) -> None:
+async def admin_lists(
+    callback: CallbackQuery,
+    callback_data: AdminAction,
+    settings: Settings,
+    session_maker: SessionMaker,
+) -> None:
     """Показывает ключи с фильтрами для админов.
 
     :param callback: входящий CallbackQuery.
@@ -37,15 +41,22 @@ async def admin_lists(callback: CallbackQuery, callback_data: AdminAction) -> No
     :return: None.
     """
 
-    settings: Settings = callback.bot["settings"]
-    session_maker: SessionMaker = callback.bot["session_maker"]
-
     async with session_maker() as session:
-        service = KeyService(
-            session=session,
-            max_keys_per_user=settings.max_keys_per_user,
-            default_key_ttl_hours=settings.default_key_ttl_hours,
-        )
+        service = KeyService(session=session, settings=settings)
+        if callback_data.action == "alerts":
+            alerts = await service.latest_alerts(limit=20)
+            await session.commit()
+            if not alerts:
+                text = "Алертов нет."
+            else:
+                lines = [
+                    f"[{a.level}] {a.created_at:%Y-%m-%d %H:%M} {a.message}"
+                    for a in alerts
+                ]
+                text = "\n".join(lines)
+            await callback.message.edit_text(text, reply_markup=admin_keyboard())
+            await callback.answer()
+            return
         keys = await service.list_all()
         await session.commit()
 
@@ -64,7 +75,8 @@ async def admin_lists(callback: CallbackQuery, callback_data: AdminAction) -> No
         lines = ["Нет записей."]
     else:
         lines = [
-            f"{'✅' if k.is_active else '⛔'} {k.name} u:{k.user_id} до {k.expires_at:%Y-%m-%d %H:%M UTC}"
+            f"{'✅' if k.is_active else '⛔'} {k.name} u:{k.user_id} {k.client_address or ''} "
+            f"до {k.expires_at:%Y-%m-%d %H:%M UTC}"
             for k in filtered
         ]
 
@@ -75,14 +87,13 @@ async def admin_lists(callback: CallbackQuery, callback_data: AdminAction) -> No
 
 
 @router.callback_query(MenuAction.filter(F.action == "home"))
-async def back_to_menu(callback: CallbackQuery) -> None:
+async def back_to_menu(callback: CallbackQuery, settings: Settings) -> None:
     """Возвращает админа в главное меню.
 
     :param callback: входящий CallbackQuery.
     :return: None.
     """
 
-    settings: Settings = callback.bot["settings"]
     await callback.message.edit_text(
         "Меню действий:",
         reply_markup=main_menu(user_is_admin=True),

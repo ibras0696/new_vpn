@@ -2,10 +2,10 @@ from __future__ import annotations
 
 import uuid
 
-from aiogram import Bot, Router, F
+from aiogram import Router, F
 from aiogram.types import CallbackQuery
 
-from app.bot.callbacks import KeyCreateAction, KeyRevokeAction, MenuAction
+from app.bot.callbacks import KeyCreateAction, KeyRevokeAction, KeyRotateAction, MenuAction
 from app.bot.keyboards import key_create_keyboard, keys_keyboard, main_menu
 from app.config import Settings
 from app.db import SessionMaker
@@ -29,7 +29,12 @@ async def show_create_menu(callback: CallbackQuery) -> None:
 
 
 @router.callback_query(KeyCreateAction.filter())
-async def create_key(callback: CallbackQuery, callback_data: KeyCreateAction) -> None:
+async def create_key(
+    callback: CallbackQuery,
+    callback_data: KeyCreateAction,
+    settings: Settings,
+    session_maker: SessionMaker,
+) -> None:
     """Создаёт временный ключ и показывает результат.
 
     :param callback: входящий CallbackQuery.
@@ -39,20 +44,12 @@ async def create_key(callback: CallbackQuery, callback_data: KeyCreateAction) ->
 
     if callback.from_user is None:
         return
-    bot = callback.bot
-    settings: Settings = bot["settings"]
-    session_maker: SessionMaker = bot["session_maker"]
-
     async with session_maker() as session:
-        service = KeyService(
-            session=session,
-            max_keys_per_user=settings.max_keys_per_user,
-            default_key_ttl_hours=settings.default_key_ttl_hours,
-        )
+        service = KeyService(session=session, settings=settings)
         user_id = await service.ensure_user(callback.from_user.id, callback.from_user.username)
         await service.set_admins(settings.admin_ids)
         try:
-            key = await service.create_key(
+            result = await service.create_key(
                 user_id=user_id,
                 name=f"key-{callback_data.hours}h",
                 ttl_hours=callback_data.hours,
@@ -66,19 +63,26 @@ async def create_key(callback: CallbackQuery, callback_data: KeyCreateAction) ->
     await callback.message.edit_text(
         (
             "✅ Ключ создан.\n"
-            f"ID: {key.id}\n"
-            f"Имя: {key.name}\n"
-            f"Действует до: {key.expires_at:%Y-%m-%d %H:%M UTC}\n\n"
-            "⚠️ Генерацию/выдачу реального WireGuard-конфига нужно будет подключить к API."
+            f"ID: {result.key.id}\n"
+            f"Имя: {result.key.name}\n"
+            f"Адрес: {result.key.client_address}\n"
+            f"Действует до: {result.key.expires_at:%Y-%m-%d %H:%M UTC}\n\n"
+            "Сохрани конфиг, приватный ключ не хранится."
         ),
         reply_markup=main_menu(
             user_is_admin=callback.from_user.id in settings.admin_ids,
         ),
     )
+    await callback.message.answer(
+        f"<pre>{result.credentials.config_text}</pre>",
+        disable_web_page_preview=True,
+    )
 
 
 @router.callback_query(MenuAction.filter(F.action == "list"))
-async def list_keys(callback: CallbackQuery) -> None:
+async def list_keys(
+    callback: CallbackQuery, settings: Settings, session_maker: SessionMaker
+) -> None:
     """Показывает ключи пользователя.
 
     :param callback: входящий CallbackQuery.
@@ -87,16 +91,8 @@ async def list_keys(callback: CallbackQuery) -> None:
 
     if callback.from_user is None:
         return
-    bot = callback.bot
-    settings: Settings = bot["settings"]
-    session_maker: SessionMaker = bot["session_maker"]
-
     async with session_maker() as session:
-        service = KeyService(
-            session=session,
-            max_keys_per_user=settings.max_keys_per_user,
-            default_key_ttl_hours=settings.default_key_ttl_hours,
-        )
+        service = KeyService(session=session, settings=settings)
         user_id = await service.ensure_user(callback.from_user.id, callback.from_user.username)
         keys = await service.list_keys(user_id)
         await session.commit()
@@ -108,7 +104,8 @@ async def list_keys(callback: CallbackQuery) -> None:
         for key in keys:
             status = "✅ активен" if key.is_active else "⛔ истёк/отозван"
             lines.append(
-                f"{status}: {key.name} (до {key.expires_at:%Y-%m-%d %H:%M UTC}, id={key.id})"
+                f"{status}: {key.name} {key.client_address or ''} "
+                f"(до {key.expires_at:%Y-%m-%d %H:%M UTC}, id={key.id})"
             )
         text = "\n".join(lines)
 
@@ -116,7 +113,12 @@ async def list_keys(callback: CallbackQuery) -> None:
 
 
 @router.callback_query(KeyRevokeAction.filter())
-async def revoke_key(callback: CallbackQuery, callback_data: KeyRevokeAction) -> None:
+async def revoke_key(
+    callback: CallbackQuery,
+    callback_data: KeyRevokeAction,
+    settings: Settings,
+    session_maker: SessionMaker,
+) -> None:
     """Отзывает выбранный ключ.
 
     :param callback: входящий CallbackQuery.
@@ -126,17 +128,9 @@ async def revoke_key(callback: CallbackQuery, callback_data: KeyRevokeAction) ->
 
     if callback.from_user is None:
         return
-    bot = callback.bot
-    settings: Settings = bot["settings"]
-    session_maker: SessionMaker = bot["session_maker"]
-
     key_id = uuid.UUID(callback_data.key_id)
     async with session_maker() as session:
-        service = KeyService(
-            session=session,
-            max_keys_per_user=settings.max_keys_per_user,
-            default_key_ttl_hours=settings.default_key_ttl_hours,
-        )
+        service = KeyService(session=session, settings=settings)
         user_id = await service.ensure_user(callback.from_user.id, callback.from_user.username)
         success = await service.revoke_key(key_id, user_id=user_id)
         await session.commit()
@@ -148,3 +142,47 @@ async def revoke_key(callback: CallbackQuery, callback_data: KeyRevokeAction) ->
     await callback.message.edit_reply_markup(
         reply_markup=main_menu(user_is_admin=callback.from_user.id in settings.admin_ids)
     )
+
+
+@router.callback_query(KeyRotateAction.filter())
+async def rotate_key(
+    callback: CallbackQuery,
+    callback_data: KeyRotateAction,
+    settings: Settings,
+    session_maker: SessionMaker,
+) -> None:
+    """Ротирует ключ и выдаёт новый конфиг.
+
+    :param callback: входящий CallbackQuery.
+    :param callback_data: данные с идентификатором ключа.
+    :return: None.
+    """
+
+    if callback.from_user is None:
+        return
+    key_id = uuid.UUID(callback_data.key_id)
+    async with session_maker() as session:
+        service = KeyService(session=session, settings=settings)
+        user_id = await service.ensure_user(callback.from_user.id, callback.from_user.username)
+        try:
+            result = await service.rotate_key(key_id=key_id, user_id=user_id)
+            await session.commit()
+        except ValueError as exc:
+            await session.rollback()
+            await callback.answer(str(exc), show_alert=True)
+            return
+
+    await callback.message.answer(
+        (
+            "♻️ Ключ ротирован.\n"
+            f"ID: {result.key.id}\n"
+            f"Адрес: {result.key.client_address}\n"
+            f"Действует до: {result.key.expires_at:%Y-%m-%d %H:%M UTC}\n\n"
+            "Сохрани новый конфиг, старый ключ отозван."
+        )
+    )
+    await callback.message.answer(
+        f"<pre>{result.credentials.config_text}</pre>",
+        disable_web_page_preview=True,
+    )
+    await callback.answer("Новый конфиг сгенерирован", show_alert=True)

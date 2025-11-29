@@ -21,6 +21,12 @@ class KeyRevokeAction(CallbackData, prefix="key_revoke"):
     key_id: str
 
 
+class KeyRotateAction(CallbackData, prefix="key_rotate"):
+    """Ротация ключа."""
+
+    key_id: str
+
+
 class AdminAction(CallbackData, prefix="admin"):
     """Действия админ-панели."""
 
