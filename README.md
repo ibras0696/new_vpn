@@ -32,11 +32,20 @@
 - `app/wireguard.py` — генерация ключей и конфигов.
 - `app/migrations_runner.py`, `alembic/` — миграции.
 - `app/bot/...` — роутеры aiogram, клавиатуры, фильтры.
-- `docker-compose.yml` — сервисы `app` и `db`.
+- `docker-compose.yml` — сервисы `app`, `db`, `nginx` (TLS через certbot, авто-renew, прокси на app).
 - `scripts/` — служебные скрипты:
   - `scripts/bootstrap_server.sh` — установка Docker/compose и wireguard-tools на сервер.
   - `scripts/wg_server_init.sh` — генерация серверных ключей и чернового `/etc/wireguard/wg0.conf`.
   - `scripts/wg_peer_add.sh` — добавление пиров в конфиг и применение через `wg syncconf`.
+  - `scripts/nginx_certbot_setup.sh` — установка Nginx+Certbot, выпуск TLS-серта и post-hook для авто-релоада.
+- `deploy/` — примеры конфигов:
+  - `deploy/nginx/vpppn.conf.example` — шаблон nginx с прокси и TLS.
+  - `deploy/nginx/` — Dockerfile + entrypoint для контейнера nginx+certbot.
+- `.env.nginx.example` — переменные для nginx+certbot (домен, email, upstream).
+
+Примечание по сертификатам в Docker: при смене `SERVER_NAME` entrypoint удалит старые каталоги `/etc/letsencrypt/{live,archive,renewal}` для прежних доменов и запросит новый сертификат для актуального.
+
+Подробный гайд по развёртыванию см. в `docs/DEPLOY.md`.
 
 ## Дальше
 - Подключить управление реальным WireGuard-интерфейсом/пирами (добавление/удаление на сервере) и метрики.

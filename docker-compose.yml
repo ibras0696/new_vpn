@@ -21,5 +21,22 @@ services:
     ports:
       - "5432:5432"
 
+  nginx:
+    build:
+      context: ./deploy/nginx
+    environment:
+      SERVER_NAME: ${SERVER_NAME}
+      EMAIL: ${EMAIL}
+      UPSTREAM_PORT: ${UPSTREAM_PORT:-8000}
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./data/certbot/www:/var/www/certbot
+      - ./data/letsencrypt:/etc/letsencrypt
+    restart: unless-stopped
+
 volumes:
   pgdata:
