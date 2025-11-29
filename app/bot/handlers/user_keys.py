@@ -3,7 +3,7 @@ from __future__ import annotations
 import uuid
 
 from aiogram import Router, F
-from aiogram.types import CallbackQuery
+from aiogram.types import BufferedInputFile, CallbackQuery
 
 from app.bot.callbacks import KeyCreateAction, KeyRevokeAction, KeyRotateAction, MenuAction
 from app.bot.keyboards import key_create_keyboard, keys_keyboard, main_menu
@@ -73,9 +73,10 @@ async def create_key(
             user_is_admin=callback.from_user.id in settings.admin_ids,
         ),
     )
-    await callback.message.answer(
-        f"<pre>{result.credentials.config_text}</pre>",
-        disable_web_page_preview=True,
+    config_bytes = result.credentials.config_text.encode()
+    await callback.message.answer_document(
+        BufferedInputFile(config_bytes, filename=f"wg-{result.key.id}.conf"),
+        caption="WireGuard конфиг. Сохрани файл, приватный ключ больше не выдаётся.",
     )
 
 
@@ -181,8 +182,9 @@ async def rotate_key(
             "Сохрани новый конфиг, старый ключ отозван."
         )
     )
-    await callback.message.answer(
-        f"<pre>{result.credentials.config_text}</pre>",
-        disable_web_page_preview=True,
+    config_bytes = result.credentials.config_text.encode()
+    await callback.message.answer_document(
+        BufferedInputFile(config_bytes, filename=f"wg-{result.key.id}.conf"),
+        caption="Новый WireGuard конфиг. Старый ключ отозван.",
     )
     await callback.answer("Новый конфиг сгенерирован", show_alert=True)
