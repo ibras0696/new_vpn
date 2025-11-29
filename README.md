@@ -47,6 +47,13 @@
 
 Подробный гайд по развёртыванию см. в `docs/DEPLOY.md`.
 
+## Скрипты: когда и как запускать
+- Bootstrap сервера (Docker + wg): `sudo bash scripts/bootstrap_server.sh` (используй только на чистом сервере).
+- Генерация серверного WG-конфига: `sudo WG_IFACE=wg0 WG_PORT=51820 WG_ADDRESS=10.8.0.1/24 bash scripts/wg_server_init.sh`.
+- Добавление пира в системный WG: `sudo WG_IFACE=wg0 bash scripts/wg_peer_add.sh PUBLIC_KEY "10.8.0.2/32" PRESHARED_KEY`.
+- Системный nginx+certbot (без Docker): `sudo DOMAIN=example.com EMAIL=you@example.com UPSTREAM_PORT=8000 bash scripts/nginx_certbot_setup.sh`.
+- Все эти скрипты запускаются вручную, ничего не стартует автоматически.
+
 ## Дальше
 - Подключить управление реальным WireGuard-интерфейсом/пирами (добавление/удаление на сервере) и метрики.
 - Интегрировать реальные платежные шлюзы и уведомления (почта/Slack/Telegram) для алертов.
