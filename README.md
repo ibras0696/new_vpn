@@ -48,7 +48,7 @@ Makefile:
   - `scripts/wg_server_init.sh` — генерация серверных ключей и чернового `/etc/wireguard/wg0.conf`.
   - `scripts/wg_peer_add.sh` — добавление пиров в конфиг и применение через `wg syncconf`.
   - `scripts/nginx_certbot_setup.sh` — установка Nginx+Certbot, выпуск TLS-серта и post-hook для авто-релоада.
-  - `scripts/preflight_check.sh` — простая проверка DNS/BOT_TOKEN/портов перед запуском.
+- `scripts/preflight_check.sh` — простая проверка DNS/BOT_TOKEN/портов перед запуском.
 - `deploy/` — примеры конфигов:
   - `deploy/nginx/vpppn.conf.example` — шаблон nginx с прокси и TLS.
   - `deploy/nginx/` — Dockerfile + entrypoint для контейнера nginx+certbot.
@@ -56,6 +56,18 @@ Makefile:
 Примечание по сертификатам в Docker: при смене `SERVER_NAME` entrypoint удалит старые каталоги `/etc/letsencrypt/{live,archive,renewal}` для прежних доменов и запросит новый сертификат для актуального.
 
 Подробный гайд по развёртыванию см. в `docs/DEPLOY.md`.
+
+## Что вписать в WG_* (важно)
+- `WG_ENDPOINT` — внешний адрес и порт сервера WG: `example.com:51820` или `1.2.3.4:51820`.
+- `WG_CLIENT_ADDRESS_CIDR` — подсеть для клиентов. Если не знаешь, оставь `10.8.0.0/24`. Эту же подсеть нужно указать в конфиге серверного WG (Address у интерфейса, например `10.8.0.1/24`).
+- `WG_SERVER_PUBLIC_KEY` — публичный ключ сервера WG. Сгенерируй на сервере:
+  ```
+  wg genkey | tee server_private.key | wg pubkey > server_public.key
+  ```
+  В `.env` впиши содержимое `server_public.key`. Приватный ключ (`server_private.key`) используй только в конфиге сервера (`wg0.conf`), в `.env` его не кладём.
+- `WG_ALLOWED_IPS`, `WG_DNS`, `WG_PRESHARED_KEY` — по желанию; по умолчанию можно оставить как есть.
+
+Помни: приложение не добавляет пиров в системный WG — это делается вручную (см. скрипты `scripts/wg_server_init.sh` и `scripts/wg_peer_add.sh`) или через свою автоматизацию.
 
 ## Перед запуском (чеклист)
 - DNS: `SERVER_NAME` должен резолвиться на сервер (A/AAAA).  
